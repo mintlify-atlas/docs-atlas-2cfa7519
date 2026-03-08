@@ -1,0 +1,124 @@
+{
+  "projectType": "saas",
+  "projectName": "EduStream",
+  "projectDescription": "A real-time streaming and communication platform with video calls, live streaming, group chats, and interactive features for educational purposes.",
+  "theme": "palm",
+  "primaryColor": "#3b82f6",
+  "lightColor": "#60a5fa",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/live-streaming",
+              "features/video-calls",
+              "features/chat",
+              "features/groups"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "components/chat-stream",
+              "components/call-system",
+              "components/live-host",
+              "components/live-viewer"
+            ]
+          },
+          {
+            "group": "Services",
+            "pages": [
+              "services/socket-service",
+              "services/peer-service",
+              "services/api-service"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "User Guide",
+        "groups": [
+          {
+            "group": "Using the Platform",
+            "pages": [
+              "guide/authentication",
+              "guide/dashboard",
+              "guide/hosting-stream",
+              "guide/joining-stream",
+              "guide/making-calls",
+              "guide/managing-groups"
+            ]
+          },
+          {
+            "group": "Settings",
+            "pages": [
+              "guide/profile-settings",
+              "guide/security-settings",
+              "guide/privacy-settings"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "development/architecture",
+              "development/routing",
+              "development/state-management"
+            ]
+          },
+          {
+            "group": "Integration",
+            "pages": [
+              "development/socket-integration",
+              "development/webrtc-setup",
+              "development/peerjs-configuration"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Real-time video and audio calls with PeerJS",
+    "Live streaming with host and viewer modes",
+    "Interactive chat with real-time messaging via Socket.io",
+    "Group management and transmissions",
+    "User dashboard with statistics and analytics",
+    "Waiting room system for stream hosts",
+    "Profile, security, and privacy settings",
+    "Participant management for live streams"
+  ],
+  "publicApiSurface": [
+    "socket.emit('room-stream', { userId, room })",
+    "socket.emit('sendMessageStream', msgData)",
+    "socket.on('newMessageStream', callback)",
+    "createPeer(id): Peer",
+    "callStore.startCall(targetId, targetName, targetPhoto)",
+    "callStore.endCall()",
+    "callStore.minimizeCall()",
+    "callStore.maximizeCall()",
+    "/dashboard/statistics - Dashboard view",
+    "/dashboard/chats - Chat interface",
+    "/dashboard/users - User management",
+    "/dashboard/groups - Group management",
+    "/dashboard/transmitions - Transmission management",
+    "/liveHost/:id - Live stream host",
+    "/liveViewer/:link/:id - Live stream viewer"
+  ]
+}
