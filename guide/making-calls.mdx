@@ -1,0 +1,370 @@
+---
+title: Making Calls
+description: Learn how to make and receive one-on-one audio/video calls on EduStream
+---
+
+## Overview
+
+EduStream supports direct peer-to-peer audio calls between users. Make quick calls to discuss topics, ask questions, or collaborate with colleagues.
+
+## Call Types
+
+EduStream currently supports:
+
+<CardGroup cols={2}>
+  <Card title="Audio Calls" icon="phone">
+    Voice-only calls with high-quality audio and minimal bandwidth usage.
+  </Card>
+  
+  <Card title="WebRTC Technology" icon="network-wired">
+    End-to-end encrypted peer-to-peer connections for secure communication.
+  </Card>
+</CardGroup>
+
+<Info>
+  All calls use WebRTC technology with STUN servers for optimal connection quality.
+</Info>
+
+## Making a Call
+
+### Prerequisites
+
+Before making a call, ensure:
+
+- You have microphone access enabled in your browser
+- You're connected to the internet
+- The person you want to call is online
+
+### Starting a Call
+
+<Steps>
+  <Step title="Navigate to Chats">
+    Go to the Chats section of EduStream.
+  </Step>
+  
+  <Step title="Select a Contact">
+    Click on the user you want to call from your contact list.
+  </Step>
+  
+  <Step title="Initiate Call">
+    Click the call button (phone icon) in the chat interface.
+  </Step>
+  
+  <Step title="Allow Microphone Access">
+    If prompted, grant microphone access to your browser.
+  </Step>
+</Steps>
+
+## Call Interface
+
+### Calling Screen
+
+While the call is connecting, you'll see:
+
+<Accordion title="Animated Call Screen">
+  - Contact's photo or avatar
+  - Contact's name
+  - "Llamando..." (Calling) message with animated dots
+  - Blue pulsing glow effect
+  - Red hangup button
+</Accordion>
+
+<Note>
+  Wait for the recipient to answer. The call will automatically connect when they accept.
+</Note>
+
+### Active Call Screen
+
+Once the call is connected:
+
+#### Visual Elements
+
+- **Background**: Blurred version of contact's photo
+- **Status Badge**: Green dot with "En llamada" (In call) label
+- **Contact Name**: Large, centered display
+- **Timer**: Shows call duration in MM:SS format
+- **Contact Avatar**: Large circular photo with animated glow effect
+- **Security Badge**: "Cifrado de extremo a extremo" (End-to-end encrypted)
+
+#### Call Controls
+
+<CardGroup cols={2}>
+  <Card title="Minimize" icon="chevron-down">
+    Top-left button to minimize the call and continue using the platform.
+  </Card>
+  
+  <Card title="Mute/Unmute" icon="microphone">
+    Toggle your microphone on/off during the call.
+  </Card>
+  
+  <Card title="End Call" icon="phone-slash">
+    Red button to hang up and end the call.
+  </Card>
+</CardGroup>
+
+## Call Controls in Detail
+
+### Microphone Control
+
+<Steps>
+  <Step title="Locate Mute Button">
+    Find the microphone icon in the bottom control panel.
+  </Step>
+  
+  <Step title="Toggle Mute">
+    Click to mute/unmute:
+    - **Gray background**: Microphone is active
+    - **Red background**: Microphone is muted
+  </Step>
+  
+  <Step title="Visual Feedback">
+    The icon changes:
+    - Standard microphone icon when active
+    - Slashed microphone icon when muted
+  </Step>
+</Steps>
+
+<Tip>
+  The button label shows "Silencio" (Mute) when active and "Activado" (Active) when muted.
+</Tip>
+
+### Minimizing Calls
+
+<Steps>
+  <Step title="Click Minimize">
+    Click the chevron-down button in the top-left corner.
+  </Step>
+  
+  <Step title="Continue Using Platform">
+    The call continues in the background while you:
+    - Browse chats
+    - View groups
+    - Check your dashboard
+  </Step>
+  
+  <Step title="Return to Call">
+    Click the floating mini call widget to return to the full call interface.
+  </Step>
+</Steps>
+
+<Info>
+  When minimized, a small call widget appears showing the contact's name and call duration.
+</Info>
+
+### Ending a Call
+
+<Steps>
+  <Step title="Click End Call Button">
+    Click the large red button with phone-slash icon.
+  </Step>
+  
+  <Step title="Disconnect">
+    The call ends immediately:
+    - Your microphone is stopped
+    - WebRTC connection closes
+    - You're redirected back to chats
+  </Step>
+  
+  <Step title="Notification">
+    The other person is notified that you ended the call.
+  </Step>
+</Steps>
+
+## Receiving Calls
+
+### Incoming Call Notification
+
+When someone calls you:
+
+<Steps>
+  <Step title="Receive Notification">
+    You'll see/hear an incoming call notification with:
+    - Caller's photo
+    - Caller's name
+    - Call type indicator
+  </Step>
+  
+  <Step title="Choose Action">
+    You have two options:
+    - **Accept**: Green phone icon
+    - **Reject**: Red phone icon
+  </Step>
+  
+  <Step title="Call Connects">
+    If you accept:
+    - Microphone access is requested (if not already granted)
+    - Call screen appears
+    - Connection establishes automatically
+  </Step>
+</Steps>
+
+### Answering a Call
+
+<Accordion title="Accept the Call">
+  Click the green answer button to:
+  1. Grant microphone access (if prompted)
+  2. Connect to the caller
+  3. Start the call session
+</Accordion>
+
+<Accordion title="Reject the Call">
+  Click the red reject button to:
+  1. Decline the call
+  2. Notify the caller you're unavailable
+  3. Return to your current activity
+</Accordion>
+
+## Call Features
+
+### Call Timer
+
+The call timer displays:
+
+- **Format**: MM:SS (minutes:seconds)
+- **Updates**: Every second
+- **Location**: Below contact name
+- **Style**: Large, mono-spaced font for easy reading
+
+### Security Indicator
+
+The security badge shows:
+
+- **Lock icon**: Indicates encrypted connection
+- **Message**: "Cifrado de extremo a extremo"
+- **Purpose**: Confirms your call is private and secure
+
+<Note>
+  All calls use WebRTC with end-to-end encryption, ensuring your conversations remain private.
+</Note>
+
+## Call States
+
+<CardGroup cols={3}>
+  <Card title="Calling" icon="spinner">
+    Outgoing call connecting to recipient.
+  </Card>
+  
+  <Card title="Connected" icon="phone">
+    Active call in progress.
+  </Card>
+  
+  <Card title="Ended" icon="phone-slash">
+    Call has been terminated.
+  </Card>
+</CardGroup>
+
+## Call Events
+
+### During a Call
+
+<Accordion title="Call Answered">
+  When the recipient answers:
+  - Call state changes from "calling" to "connected"
+  - Timer starts counting
+  - Audio connection establishes
+</Accordion>
+
+<Accordion title="Call Rejected">
+  If the recipient rejects:
+  - You receive a "Llamada rechazada" notification
+  - You're redirected back to chats
+  - No connection is established
+</Accordion>
+
+<Accordion title="Call Ended by Other Person">
+  If they hang up:
+  - You receive a notification
+  - Call automatically ends
+  - You're redirected to chats
+</Accordion>
+
+<Accordion title="Connection Lost">
+  If internet connection drops:
+  - Call may disconnect automatically
+  - You'll see a connection error
+  - Try calling again when connection is restored
+</Accordion>
+
+## Advanced Features
+
+### ICE Candidate Exchange
+
+Behind the scenes, EduStream:
+
+- Exchanges ICE candidates for optimal peer connection
+- Uses Google STUN servers for NAT traversal
+- Establishes the best possible connection path
+
+### Call Store Management
+
+The platform manages call state:
+
+- Stores active call data
+- Syncs call duration across views
+- Manages minimized call state
+- Handles cleanup on disconnect
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Test Your Audio" icon="volume-high">
+    Check your microphone before making important calls.
+  </Card>
+  
+  <Card title="Use Headphones" icon="headphones">
+    Prevent echo and improve audio quality.
+  </Card>
+  
+  <Card title="Stable Connection" icon="wifi">
+    Ensure you have a reliable internet connection.
+  </Card>
+  
+  <Card title="Quiet Environment" icon="volume-off">
+    Make calls in a quiet space for better communication.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<Accordion title="Microphone Not Working">
+  1. Check browser permissions in the address bar
+  2. Ensure no other app is using your microphone
+  3. Test your microphone in system settings
+  4. Try refreshing the page and calling again
+</Accordion>
+
+<Accordion title="Can't Hear the Other Person">
+  1. Check your device volume settings
+  2. Ensure you're not muted on the call
+  3. Ask the other person to check their microphone
+  4. Try using headphones
+</Accordion>
+
+<Accordion title="Call Won't Connect">
+  1. Verify both users are online
+  2. Check your internet connection
+  3. Ensure you both have microphone permissions
+  4. Try refreshing and calling again
+</Accordion>
+
+<Accordion title="Poor Audio Quality">
+  1. Check your internet connection speed
+  2. Close bandwidth-intensive applications
+  3. Move closer to your WiFi router
+  4. Ask the other person to check their connection
+</Accordion>
+
+## Call Limitations
+
+<Note>
+  Current limitations:
+  - Calls are audio-only (no video)
+  - One-on-one calls only (no group calls)
+  - Requires both users to be online
+</Note>
+
+## Next Steps
+
+- Learn about [Hosting Streams](/guide/hosting-stream) for group sessions
+- Explore [Joining Streams](/guide/joining-stream) to participate in broadcasts
+- Understand [Managing Groups](/guide/managing-groups) for team collaboration

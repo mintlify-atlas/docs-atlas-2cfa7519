@@ -1,0 +1,478 @@
+---
+title: 'State Management'
+description: 'Pinia stores, reactive state patterns, and state management architecture in EduStream'
+---
+
+## Overview
+
+EduStream uses Pinia 3.0 for state management. Unlike traditional Vuex, Pinia provides a simpler API with better TypeScript support and composition-friendly patterns. Currently, the application uses a reactive object pattern for the call store.
+
+## Pinia Setup
+
+Pinia is initialized in the main application file:
+
+```typescript src/main.ts
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import App from './App.vue'
+
+const app = createApp(App)
+app.use(createPinia())
+app.mount('#app')
+```
+
+<Note>
+  Pinia is installed before the router to ensure stores are available throughout the application lifecycle.
+</Note>
+
+## Call Store
+
+The call store manages all state related to voice and video calls, including call status, participant information, and WebRTC connections.
+
+### Store Structure
+
+```javascript src/stores/callStore.js
+import { reactive } from 'vue'
+
+export const callStore = reactive({
+    isInCall: false,
+    isMinimized: false,
+    callData: {
+        targetId: null,
+        targetName: '',
+        targetPhoto: null,
+        callDuration: 0,
+        isAudioEnabled: true,
+        peerConnection: null,
+        localStream: null,
+        remoteStream: null
+    },
+    // ... methods
+})
+```
+
+### State Properties
+
+<Tabs>
+  <Tab title="Call Status">
+    ```javascript
+    {
+      isInCall: false,      // Whether user is currently in a call
+      isMinimized: false,   // Whether call UI is minimized
+    }
+    ```
+  </Tab>
+  <Tab title="Call Data">
+    ```javascript
+    callData: {
+      targetId: null,          // ID of the other participant
+      targetName: '',          // Name of the other participant
+      targetPhoto: null,       // Profile photo URL
+      callDuration: 0,         // Call duration in seconds
+      isAudioEnabled: true,    // Audio mute status
+      peerConnection: null,    // WebRTC peer connection
+      localStream: null,       // Local media stream
+      remoteStream: null       // Remote media stream
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Store Methods
+
+### Starting a Call
+
+```javascript src/stores/callStore.js
+startCall(targetId, targetName, targetPhoto) {
+    this.isInCall = true
+    this.isMinimized = false
+    this.callData.targetId = targetId
+    this.callData.targetName = targetName
+    this.callData.targetPhoto = targetPhoto
+    this.callData.callDuration = 0
+}
+```
+
+**Usage in component:**
+
+```vue Using the Store
+<script setup>
+import { callStore } from '@/stores/callStore'
+
+const initiateCall = (user) => {
+  callStore.startCall(user.id, user.name, user.photo)
+  // Navigate to calling screen
+  router.push({ name: 'calling', params: { id: user.id } })
+}
+</script>
+```
+
+### Call UI Management
+
+<CodeGroup>
+```javascript Minimize Call
+minimizeCall() {
+    this.isMinimized = true
+}
+```
+
+```javascript Maximize Call
+maximizeCall() {
+    this.isMinimized = false
+}
+```
+</CodeGroup>
+
+**Component integration:**
+
+```vue Call Controls
+<script setup>
+import { callStore } from '@/stores/callStore'
+
+const toggleMinimize = () => {
+  if (callStore.isMinimized) {
+    callStore.maximizeCall()
+  } else {
+    callStore.minimizeCall()
+  }
+}
+</script>
+
+<template>
+  <button @click="toggleMinimize">
+    {{ callStore.isMinimized ? 'Maximize' : 'Minimize' }}
+  </button>
+</template>
+```
+
+### Ending a Call
+
+```javascript src/stores/callStore.js
+endCall() {
+    this.isInCall = false
+    this.isMinimized = false
+    this.callData = {
+        targetId: null,
+        targetName: '',
+        targetPhoto: null,
+        callDuration: 0,
+        isAudioEnabled: true,
+        peerConnection: null,
+        localStream: null,
+        remoteStream: null
+    }
+}
+```
+
+<Warning>
+  The `endCall` method resets all call data. Ensure you've properly cleaned up WebRTC connections before calling this method.
+</Warning>
+
+### Audio Control
+
+```javascript src/stores/callStore.js
+toggleAudio() {
+    this.callData.isAudioEnabled = !this.callData.isAudioEnabled
+}
+```
+
+**Mute/unmute implementation:**
+
+```vue Audio Toggle
+<script setup>
+import { callStore } from '@/stores/callStore'
+import { watch } from 'vue'
+
+watch(
+  () => callStore.callData.isAudioEnabled,
+  (enabled) => {
+    if (callStore.callData.localStream) {
+      callStore.callData.localStream
+        .getAudioTracks()
+        .forEach(track => track.enabled = enabled)
+    }
+  }
+)
+</script>
+
+<template>
+  <button @click="callStore.toggleAudio()">
+    {{ callStore.callData.isAudioEnabled ? 'Mute' : 'Unmute' }}
+  </button>
+</template>
+```
+
+### WebRTC Management
+
+<CodeGroup>
+```javascript Set Peer Connection
+setPeerConnection(pc) {
+    this.callData.peerConnection = pc
+}
+```
+
+```javascript Set Media Streams
+setStreams(local, remote) {
+    this.callData.localStream = local
+    this.callData.remoteStream = remote
+}
+```
+</CodeGroup>
+
+**WebRTC setup example:**
+
+```javascript WebRTC Integration
+import { callStore } from '@/stores/callStore'
+import Peer from 'peerjs'
+
+const setupCall = async () => {
+  // Get local media stream
+  const localStream = await navigator.mediaDevices.getUserMedia({
+    video: true,
+    audio: true
+  })
+  
+  // Create peer connection
+  const peer = new Peer()
+  
+  // Store in call store
+  callStore.setPeerConnection(peer)
+  callStore.setStreams(localStream, null)
+  
+  // When remote stream arrives
+  peer.on('stream', (remoteStream) => {
+    callStore.setStreams(localStream, remoteStream)
+  })
+}
+```
+
+### Call Duration Tracking
+
+```javascript src/stores/callStore.js
+updateCallDuration(duration) {
+    this.callData.callDuration = duration
+}
+```
+
+**Duration counter implementation:**
+
+```vue Duration Timer
+<script setup>
+import { callStore } from '@/stores/callStore'
+import { onMounted, onUnmounted, computed } from 'vue'
+
+let intervalId = null
+
+onMounted(() => {
+  intervalId = setInterval(() => {
+    if (callStore.isInCall) {
+      callStore.updateCallDuration(callStore.callData.callDuration + 1)
+    }
+  }, 1000)
+})
+
+onUnmounted(() => {
+  clearInterval(intervalId)
+})
+
+const formattedDuration = computed(() => {
+  const duration = callStore.callData.callDuration
+  const minutes = Math.floor(duration / 60)
+  const seconds = duration % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+})
+</script>
+
+<template>
+  <div>{{ formattedDuration }}</div>
+</template>
+```
+
+## Reactive Patterns
+
+### Direct State Access
+
+Since the store uses Vue's `reactive()`, it's automatically reactive:
+
+```vue Reactive Updates
+<script setup>
+import { callStore } from '@/stores/callStore'
+import { computed } from 'vue'
+
+// Automatically updates when store changes
+const isActive = computed(() => callStore.isInCall)
+const participantName = computed(() => callStore.callData.targetName)
+</script>
+
+<template>
+  <div v-if="isActive">
+    In call with {{ participantName }}
+  </div>
+</template>
+```
+
+### Watchers
+
+```vue Watching Store Changes
+<script setup>
+import { callStore } from '@/stores/callStore'
+import { watch } from 'vue'
+
+watch(
+  () => callStore.isInCall,
+  (inCall) => {
+    if (inCall) {
+      console.log('Call started')
+      // Start call analytics, etc.
+    } else {
+      console.log('Call ended')
+      // Clean up resources
+    }
+  }
+)
+</script>
+```
+
+## State Management Patterns
+
+### Call Lifecycle
+
+```javascript Complete Call Flow
+import { callStore } from '@/stores/callStore'
+
+// 1. Initiate call
+callStore.startCall(userId, userName, userPhoto)
+
+// 2. Set up WebRTC
+const pc = setupPeerConnection()
+callStore.setPeerConnection(pc)
+
+// 3. Add media streams
+const localStream = await getLocalStream()
+callStore.setStreams(localStream, null)
+
+// 4. Update duration periodically
+setInterval(() => {
+  callStore.updateCallDuration(callStore.callData.callDuration + 1)
+}, 1000)
+
+// 5. Handle minimize/maximize
+callStore.minimizeCall()  // User navigates away
+callStore.maximizeCall()  // User returns to call
+
+// 6. End call and cleanup
+callStore.endCall()
+pc.close()
+localStream.getTracks().forEach(track => track.stop())
+```
+
+## Best Practices
+
+### Import Pattern
+
+```javascript
+// Import at the top of your component
+import { callStore } from '@/stores/callStore'
+
+// Use directly in setup or methods
+const someMethod = () => {
+  callStore.startCall(/* ... */)
+}
+```
+
+### Cleanup on End Call
+
+<Warning>
+  Always clean up WebRTC resources before calling `endCall()`.
+</Warning>
+
+```javascript Proper Cleanup
+const endCallProperly = () => {
+  // 1. Close peer connection
+  if (callStore.callData.peerConnection) {
+    callStore.callData.peerConnection.close()
+  }
+  
+  // 2. Stop all media tracks
+  if (callStore.callData.localStream) {
+    callStore.callData.localStream.getTracks().forEach(t => t.stop())
+  }
+  if (callStore.callData.remoteStream) {
+    callStore.callData.remoteStream.getTracks().forEach(t => t.stop())
+  }
+  
+  // 3. Reset store state
+  callStore.endCall()
+}
+```
+
+### State Composition
+
+```vue Computed Properties
+<script setup>
+import { callStore } from '@/stores/callStore'
+import { computed } from 'vue'
+
+const callState = computed(() => ({
+  active: callStore.isInCall,
+  minimized: callStore.isMinimized,
+  participant: callStore.callData.targetName,
+  duration: callStore.callData.callDuration,
+  muted: !callStore.callData.isAudioEnabled
+}))
+</script>
+```
+
+## Future Store Patterns
+
+### Converting to Pinia Composition API
+
+For future stores, consider using Pinia's composition API:
+
+```typescript Example Pinia Store
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+
+export const useUserStore = defineStore('user', () => {
+  // State
+  const currentUser = ref(null)
+  const isAuthenticated = ref(false)
+  
+  // Getters
+  const userName = computed(() => currentUser.value?.name ?? 'Guest')
+  
+  // Actions
+  function login(user) {
+    currentUser.value = user
+    isAuthenticated.value = true
+  }
+  
+  function logout() {
+    currentUser.value = null
+    isAuthenticated.value = false
+  }
+  
+  return {
+    currentUser,
+    isAuthenticated,
+    userName,
+    login,
+    logout
+  }
+})
+```
+
+<Info>
+  The composition API pattern provides better TypeScript inference and is more aligned with Vue 3's composition API.
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" href="/development/architecture">
+    Back to system architecture overview
+  </Card>
+  <Card title="Routing" href="/development/routing">
+    Learn about Vue Router configuration
+  </Card>
+</CardGroup>

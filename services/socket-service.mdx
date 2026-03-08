@@ -1,0 +1,363 @@
+---
+title: Socket Service
+description: Real-time communication using Socket.io for chat messaging, call signaling, and user presence
+---
+
+## Overview
+
+The Socket service provides real-time bidirectional communication between the client and server using Socket.io. It handles chat messaging, video call signaling, user presence (online/offline status), and room-based communication.
+
+## Configuration
+
+The socket instance is configured in `src/services/socket.js`:
+
+```javascript src/services/socket.js
+import { io } from 'socket.io-client'
+
+const socket = io('http://localhost:3001', {
+  autoConnect: true,
+})
+
+export default socket
+```
+
+<ParamField path="url" type="string" default="http://localhost:3001">
+  The WebSocket server URL. Update this for production environments.
+</ParamField>
+
+<ParamField path="autoConnect" type="boolean" default="true">
+  Whether to automatically connect when the socket instance is created.
+</ParamField>
+
+## Authentication
+
+Socket authentication is handled via token-based auth. Set the auth property before connecting:
+
+```javascript
+socket.auth = {
+  token: 'your-jwt-token'
+}
+socket.connect()
+```
+
+<Info>
+The token should be obtained from the `/login` endpoint and stored in `localStorage`.
+</Info>
+
+### Example: Login Flow
+
+```javascript src/views/Login.vue
+const response = await api.post('/login', {
+  email: this.username,
+  password: this.password,
+})
+
+const token = response.data.token
+localStorage.setItem('token', token)
+
+if (token) {
+  socket.auth = { token }
+  socket.connect()
+  socket.emit("online-offline")
+}
+```
+
+## Connection Management
+
+### Manual Connect/Disconnect
+
+```javascript
+// Connect manually
+if (!socket.connected) {
+  socket.connect()
+}
+
+// Disconnect
+socket.disconnect()
+
+// Check connection status
+if (socket.connected) {
+  // Socket is connected
+}
+```
+
+## Events
+
+### Emitting Events
+
+The socket service is used to emit various events to the server:
+
+#### Chat Events
+
+<ResponseField name="sendMessage" type="emit">
+  Send a chat message to a specific room.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('sendMessage', {
+    id_chat: 123,
+    senderId: 456,
+    message: 'Hello!'
+  })
+  ```
+</ResponseField>
+
+<ResponseField name="initial room connection" type="emit">
+  Connect to multiple chat rooms on initial load.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('initial room connection', {
+    userId: 123,
+    rooms: [1, 2, 3]
+  })
+  ```
+</ResponseField>
+
+#### Call Signaling Events
+
+<ResponseField name="join-video-room" type="emit">
+  Join a signaling room for video calls.
+  
+  **Payload:**
+  ```javascript
+  const myId = userData.id
+  socket.emit('join-video-room', myId)
+  ```
+</ResponseField>
+
+<ResponseField name="call-user" type="emit">
+  Initiate a call to another user.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('call-user', {
+    userToCall: targetUserId,
+    signalData: rtcOffer,
+    from: currentUserId,
+    name: currentUserName,
+    avatar: currentUserPhoto
+  })
+  ```
+</ResponseField>
+
+<ResponseField name="make-answer" type="emit">
+  Answer an incoming call with WebRTC answer.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('make-answer', {
+    signal: rtcAnswer,
+    to: callerUserId
+  })
+  ```
+</ResponseField>
+
+<ResponseField name="ice-candidate" type="emit">
+  Exchange ICE candidates for WebRTC connection.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('ice-candidate', {
+    candidate: iceCandidate,
+    to: targetUserId
+  })
+  ```
+</ResponseField>
+
+<ResponseField name="end-call" type="emit">
+  End an active call.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('end-call', {
+    to: targetUserId
+  })
+  ```
+</ResponseField>
+
+#### Presence Events
+
+<ResponseField name="online-offline" type="emit">
+  Broadcast user's online status.
+  
+  **Usage:**
+  ```javascript
+  socket.emit('online-offline')
+  ```
+</ResponseField>
+
+### Listening to Events
+
+Handle incoming events from the server:
+
+#### Chat Events
+
+```javascript src/views/Chats.vue
+socket.on('newMessage', (dataMessage) => {
+  const chat = this.chats.find((c) => c.id === dataMessage.id_chat)
+  if (chat) {
+    chat.mensajes.push({
+      message: dataMessage.message,
+      sender_id: dataMessage.sender_id,
+      recibido: true,
+      created_at: new Date().toISOString()
+    })
+    chat.mensaje = dataMessage.message
+    
+    if (this.chatSeleccionado?.id !== chat.id) {
+      chat.nuevos = (chat.nuevos || 0) + 1
+    }
+  }
+})
+```
+
+#### Call Events
+
+```javascript src/components/calls/CallComponente.vue
+// Listen for call answer
+socket.on('call-answered', async (data) => {
+  if (callState.value === 'calling') {
+    callState.value = 'connected'
+    await peerConnection.value.setRemoteDescription(
+      new RTCSessionDescription(data.signal)
+    )
+    startTimer()
+  }
+})
+
+// Listen for ICE candidates
+socket.on('ice-candidate', async (data) => {
+  if (peerConnection.value) {
+    try {
+      await peerConnection.value.addIceCandidate(
+        new RTCIceCandidate(data.candidate)
+      )
+    } catch (e) {
+      console.error('Error adding ice candidate', e)
+    }
+  }
+})
+
+// Listen for call rejection
+socket.on('call-rejected', () => {
+  router.push({ name: 'chats' })
+})
+
+// Listen for call ended
+socket.on('call-ended', () => {
+  endCall(false) // Don't emit hangup again
+})
+```
+
+### Cleanup
+
+<Warning>
+Always remove event listeners when the component unmounts to prevent memory leaks and duplicate handlers.
+</Warning>
+
+```javascript
+onBeforeUnmount(() => {
+  socket.off('call-answered')
+  socket.off('ice-candidate')
+  socket.off('call-rejected')
+  socket.off('call-ended')
+  socket.off('newMessage')
+})
+```
+
+## Complete Example: Chat Integration
+
+```javascript
+import socket from '@/services/socket.js'
+import api from '@/services/api.js'
+
+export default {
+  data() {
+    return {
+      userData: JSON.parse(localStorage.getItem('user')) || {},
+      chats: [],
+      chatSeleccionado: null
+    }
+  },
+
+  mounted() {
+    this.connectToUserChats()
+  },
+
+  methods: {
+    async connectToUserChats() {
+      try {
+        const response = await api.get('/rooms')
+        const rooms = response.data.rooms
+
+        if (rooms && rooms.length > 0) {
+          if (!socket.connected) {
+            socket.connect()
+          }
+
+          socket.emit('initial room connection', {
+            userId: this.userData.id,
+            rooms: rooms,
+          })
+
+          socket.on('newMessage', (dataMessage) => {
+            const chat = this.chats.find((c) => c.id === dataMessage.id_chat)
+            if (chat) {
+              chat.mensajes.push({
+                message: dataMessage.message,
+                sender_id: dataMessage.sender_id,
+                created_at: new Date().toISOString()
+              })
+            }
+          })
+        }
+      } catch (error) {
+        console.error('Error connecting to rooms:', error)
+      }
+    },
+
+    sendMessage(chatId) {
+      if (!this.nuevoMensaje.trim()) return
+      
+      socket.emit('sendMessage', {
+        id_chat: chatId,
+        senderId: this.userData.id,
+        message: this.nuevoMensaje,
+      })
+
+      this.nuevoMensaje = ''
+    }
+  },
+
+  beforeUnmount() {
+    socket.off('newMessage')
+  }
+}
+```
+
+## Best Practices
+
+<Note>
+1. **Check connection status** before emitting events
+2. **Always clean up listeners** in `onBeforeUnmount` or `beforeUnmount`
+3. **Handle disconnections** gracefully with reconnection logic
+4. **Use auth tokens** for secure communication
+5. **Emit presence events** after successful authentication
+</Note>
+
+## Environment Variables
+
+For production deployments, use environment variables for the socket URL:
+
+```javascript
+const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001', {
+  autoConnect: true,
+})
+```
+
+## Related Documentation
+
+- [Peer Service](/services/peer-service) - WebRTC peer connections
+- [API Service](/services/api-service) - HTTP API requests
+- [Call Components](/components/calls) - Video call UI components

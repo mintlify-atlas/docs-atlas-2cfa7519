@@ -1,0 +1,518 @@
+---
+title: LiveHost Component
+description: Host view for live streaming with screen sharing, recording, and participant management
+---
+
+## Overview
+
+The `LiveHost` component provides a comprehensive interface for hosting live streaming sessions. It includes WebRTC-based video streaming, screen sharing, participant management, chat integration, and recording capabilities using api.video.
+
+## Component Location
+
+```
+src/views/LiveHost.vue
+```
+
+## Features
+
+### Core Streaming Features
+
+- **WebRTC Streaming**: Peer-to-peer connections with viewers
+- **Screen Sharing**: Share screen with automatic track replacement
+- **Camera Control**: Toggle camera on/off
+- **Audio Control**: Mute/unmute microphone
+- **Recording**: Record stream and upload to api.video
+- **Multi-viewer Support**: Handle multiple concurrent viewers
+
+### Participant Management
+
+- **Waiting Room**: Approve/reject join requests
+- **Active Participants**: View all connected viewers
+- **Participant Controls**: Mute or expel participants
+- **Real-time Status**: See audio/video status of participants
+
+### UI Features
+
+- **Main Video Display**: Shows host camera or shared screen
+- **Miniature Thumbnails**: Side panel with all active participants
+- **Chat Integration**: Real-time chat with ChatStreamComponent
+- **Duration Timer**: Live session duration tracking
+- **Viewer Count**: Display number of active viewers
+- **Share Modal**: Share stream link to groups
+
+## Data Properties
+
+### WebRTC & Media
+
+```javascript
+{
+  peer: null,                    // PeerJS instance
+  localStream: null,             // Camera/microphone stream
+  screenStream: null,            // Screen sharing stream
+  viewers: [],                   // Array of connected viewers
+  micAct: true,                  // Microphone state
+  camaraAct: true,              // Camera state
+  pantallaAct: false            // Screen sharing state
+}
+```
+
+### Viewer Object Structure
+
+```javascript
+{
+  id: String,                    // Peer ID
+  call: Object,                  // WebRTC call object
+  stream: MediaStream,           // Remote stream
+  videoEnabled: Boolean,         // Video track status
+  audioEnabled: Boolean,         // Audio track status
+  name: String,                  // Viewer name
+  socketId: String              // Socket connection ID
+}
+```
+
+### Room State
+
+```javascript
+{
+  roomId: String,                // Stream room ID
+  peerId: String,                // Host peer ID
+  link: String,                  // Stream join link
+  salaEspera: [],               // Waiting room users
+  participantes: [],            // Admitted participants
+  startTime: Number,            // Stream start timestamp
+  tiempo: Number,               // Elapsed time in seconds
+  tiempoFormateado: String      // Formatted time display
+}
+```
+
+### Recording State
+
+```javascript
+{
+  mediaRecorder: null,           // MediaRecorder instance
+  recordedChunks: [],           // Recorded video chunks
+  isRecording: false,           // Recording status
+  uploadToken: null,            // api.video upload token
+  uploadProgress: 0,            // Upload progress percentage
+  showRecordingModal: false,    // Show recording result modal
+  recordingData: Object         // Recording metadata
+}
+```
+
+## Key Methods
+
+### startMeeting()
+
+Initializes the streaming session with camera, microphone, and peer connections.
+
+```javascript
+async startMeeting() {
+  // 1. Get local media stream
+  this.localStream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      width: { ideal: 640, max: 640 },
+      height: { ideal: 480, max: 480 },
+      frameRate: { ideal: 15, max: 30 }
+    },
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    }
+  })
+  
+  // 2. Create PeerJS instance
+  this.peer = new Peer(undefined, {
+    host: 'localhost',
+    port: 3001,
+    path: '/peerjs',
+    debug: 3
+  })
+  
+  // 3. Handle incoming calls from viewers
+  this.peer.on('call', (call) => {
+    call.answer(this.localStream)
+    // Add viewer to viewers array
+  })
+  
+  // 4. Create room when peer is ready
+  this.peer.on('open', async (id) => {
+    this.peerId = id
+    const res = await axios.post('http://localhost:3001/api/create-room', {
+      name: this.roomId,
+      hostPeerId: this.peerId
+    })
+    this.link = res.data.roomId
+  })
+}
+```
+
+### toggleScreenShare()
+
+Starts or stops screen sharing with automatic track replacement.
+
+```javascript
+async toggleScreenShare() {
+  if (this.pantallaAct) {
+    await this.stopScreenShare()
+  } else {
+    await this.startScreenShare()
+  }
+}
+```
+
+### startScreenShare()
+
+Captures screen and replaces video track for all viewers.
+
+```javascript
+async startScreenShare() {
+  this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: false
+  })
+  
+  const screenTrack = this.screenStream.getVideoTracks()[0]
+  this.pantallaAct = true
+  
+  // Replace video track for all viewers
+  await this.replaceVideoTrackForAll(screenTrack)
+  
+  // Update local display
+  this.$refs.videoRef.srcObject = this.screenStream
+  
+  // Handle when user stops sharing
+  screenTrack.onended = () => {
+    this.stopScreenShare()
+  }
+}
+```
+
+### replaceVideoTrackForAll(newTrack)
+
+Replaces the video track for all connected viewers.
+
+```javascript
+async replaceVideoTrackForAll(newTrack) {
+  for (const viewer of this.viewers) {
+    if (viewer.call && viewer.call.peerConnection) {
+      const senders = viewer.call.peerConnection.getSenders()
+      const videoSender = senders.find(s => s.track && s.track.kind === 'video')
+      
+      if (videoSender) {
+        await videoSender.replaceTrack(newTrack)
+      }
+    }
+  }
+}
+```
+
+### Participant Management
+
+#### admitir(user)
+
+Admits a user from the waiting room.
+
+```javascript
+admitir(user) {
+  socket.emit('response-request', {
+    roomId: this.roomId,
+    viewerData: user,
+    response: true
+  })
+  
+  this.participantes.push({ ...user, estado: 'Inactivo' })
+  this.salaEspera = this.salaEspera.filter(u => u.socketId !== user.socketId)
+}
+```
+
+#### expulsar(user)
+
+Removes a participant from the stream.
+
+```javascript
+async expulsar(user) {
+  this.participantes = this.participantes.filter(p => p.id !== user.id)
+  
+  socket.emit('expel-viewer', { 
+    id: user.id, 
+    socketId: user.socketId, 
+    roomId: this.roomId 
+  })
+  
+  // Close WebRTC connection
+  const viewer = this.viewers.find(v => v.socketId === user.socketId)
+  if (viewer && viewer.call) {
+    viewer.call.close()
+    this.viewers = this.viewers.filter(v => v.id !== viewer.id)
+  }
+}
+```
+
+### Recording with api.video
+
+#### toggleRecording()
+
+Starts or stops recording the stream.
+
+```javascript
+async toggleRecording() {
+  if (this.isRecording) {
+    await this.stopRecording()
+  } else {
+    await this.startRecording()
+  }
+}
+```
+
+#### startRecording()
+
+Begins recording the screen stream.
+
+```javascript
+async startRecording() {
+  // 1. Get upload token from api.video
+  const token = await this.getUploadToken()
+  
+  // 2. Create MediaRecorder
+  const mimeType = this.getSupportedMimeType()
+  this.mediaRecorder = new MediaRecorder(this.screenStream, { mimeType })
+  
+  this.mediaRecorder.ondataavailable = (event) => {
+    if (event.data.size > 0) {
+      this.recordedChunks.push(event.data)
+    }
+  }
+  
+  this.mediaRecorder.onstop = () => {
+    this.uploadToApiVideo()
+  }
+  
+  // 3. Start recording
+  this.mediaRecorder.start(1000)
+  this.isRecording = true
+}
+```
+
+#### uploadToApiVideo()
+
+Uploads recorded video to api.video service.
+
+```javascript
+async uploadToApiVideo() {
+  const blob = new Blob(this.recordedChunks, { 
+    type: this.mediaRecorder.mimeType 
+  })
+  
+  const formData = new FormData()
+  formData.append('file', blob, `reunion-${this.roomId}-${Date.now()}.webm`)
+  
+  // Upload with progress tracking
+  const response = await axios.post(
+    `https://ws.api.video/upload?token=${this.uploadToken}`,
+    formData,
+    {
+      onUploadProgress: (progressEvent) => {
+        this.uploadProgress = Math.round(
+          (progressEvent.loaded * 100) / progressEvent.total
+        )
+      }
+    }
+  )
+  
+  // Get video details
+  const videoId = response.data.videoId
+  const detailsResponse = await axios.get(
+    `http://localhost:3001/api/apivideo/video/${videoId}`
+  )
+  
+  this.recordingData = detailsResponse.data.video
+  this.showRecordingModal = true
+}
+```
+
+### Stream Control
+
+#### confirmEndStream()
+
+Ends the stream and notifies all participants.
+
+```javascript
+async confirmEndStream() {
+  // Stop all media tracks
+  if (this.localStream) {
+    this.localStream.getTracks().forEach(track => track.stop())
+  }
+  if (this.screenStream) {
+    this.screenStream.getTracks().forEach(track => track.stop())
+  }
+  
+  // Expel all participants
+  for (const user of this.participantes) {
+    socket.emit('expel-viewer', {
+      id: user.id,
+      socketId: user.socketId,
+      roomId: this.roomId
+    })
+  }
+  
+  // Close WebRTC connections
+  this.viewers.forEach(viewer => {
+    if (viewer.call) viewer.call.close()
+  })
+  
+  // Notify via socket
+  socket.emit('end-stream', { roomId: this.roomId })
+  
+  // Update database
+  await api.put(`/transmissions/${this.roomId}/status`, { status: 2 })
+  
+  router.push({ name: 'transmitions' })
+}
+```
+
+## Socket Events
+
+### Emitted
+
+<ParamField path="start-stream" type="Object">
+  Starts the streaming session
+  
+  ```javascript
+  {
+    roomId: String,
+    link: String,
+    dataHost: Object
+  }
+  ```
+</ParamField>
+
+<ParamField path="response-request" type="Object">
+  Responds to viewer join requests
+  
+  ```javascript
+  {
+    roomId: String,
+    viewerData: Object,
+    response: Boolean
+  }
+  ```
+</ParamField>
+
+<ParamField path="expel-viewer" type="Object">
+  Removes a viewer from the stream
+  
+  ```javascript
+  {
+    id: Number,
+    socketId: String,
+    roomId: String
+  }
+  ```
+</ParamField>
+
+<ParamField path="end-stream" type="Object">
+  Ends the streaming session
+  
+  ```javascript
+  {
+    roomId: String
+  }
+  ```
+</ParamField>
+
+### Received
+
+<ParamField path="stream-started" type="Object">
+  Confirms stream has started
+  
+  Contains: `{ startTime: Number }`
+</ParamField>
+
+<ParamField path="pending-request" type="Object">
+  New viewer requesting to join
+  
+  Contains: `{ viewerData: Object }`
+</ParamField>
+
+<ParamField path="left-room" type="Object">
+  Viewer has left the stream
+  
+  Contains: `{ viewerId: String }`
+</ParamField>
+
+## Usage Example
+
+```vue
+<template>
+  <LiveHost />
+</template>
+
+<script>
+import LiveHost from '@/views/LiveHost.vue'
+
+export default {
+  components: {
+    LiveHost
+  },
+  beforeRouteEnter(to, from, next) {
+    // Ensure user is authenticated and has permission to host
+    const user = JSON.parse(localStorage.getItem('user'))
+    if (user && user.canHost) {
+      // Set stream ID in localStorage
+      localStorage.setItem('live_id', to.params.streamId)
+      next()
+    } else {
+      next('/unauthorized')
+    }
+  }
+}
+</script>
+```
+
+## Computed Properties
+
+### mainVideoActive
+
+Determines if the main video display should show content.
+
+```javascript
+mainVideoActive() {
+  if (this.mainVideoSource === 'host') {
+    return this.camaraAct || this.pantallaAct
+  } else {
+    const viewer = this.viewers.find(v => v.id === this.mainVideoSource)
+    return viewer?.videoEnabled || false
+  }
+}
+```
+
+### filteredGroups
+
+Filters groups for the share modal based on search input.
+
+```javascript
+filteredGroups() {
+  if (!this.shareSearch) return this.groupsList
+  return this.groupsList.filter(g =>
+    g.nombre.toLowerCase().includes(this.shareSearch.toLowerCase())
+  )
+}
+```
+
+## Dependencies
+
+- **PeerJS**: WebRTC peer connections
+- **axios**: HTTP requests
+- **socket.js**: WebSocket communication
+- **api.js**: Backend API service
+- **ChatStreamComponent**: Integrated chat
+- **@heroicons/vue**: UI icons
+
+<Info>
+  The LiveHost component requires a PeerJS server running on localhost:3001. Ensure the server is properly configured before starting a stream.
+</Info>
+
+<Note>
+  Recording feature requires api.video API credentials configured on the backend. The recorded videos are automatically uploaded with progress tracking.
+</Note>

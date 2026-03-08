@@ -1,0 +1,717 @@
+---
+title: Groups
+description: Create and manage community groups with member roles, permissions, and persistent messaging
+---
+
+## Overview
+
+EduStream's group system enables users to create communities for collaboration, discussion, and sharing content. Groups support role-based permissions, member management, and integrated messaging.
+
+## Creating Groups
+
+### New Group Form
+
+Users can create groups with customizable settings:
+
+```vue
+<!-- From Groups.vue:590-689 -->
+<div v-if="modalCrearGrupo" class="fixed inset-0 z-50">
+  <form @submit.prevent="newGroup">
+    <h3>Crear Nuevo Grupo</h3>
+    
+    <!-- Photo Upload -->
+    <div class="flex flex-col items-center mb-6">
+      <div class="bg-gray-700 rounded-full w-24 h-24">
+        <UserGroupIcon v-if="!form.photo" />
+        <img v-else :src="form.photo" />
+        <input type="file" @change="onFileChange" />
+      </div>
+      <p>Subir foto</p>
+    </div>
+    
+    <!-- Group Name -->
+    <div class="mb-4">
+      <label>Nombre del grupo</label>
+      <input
+        v-model="form.name"
+        type="text"
+        placeholder="Ej: Amigos de la U"
+        required
+      />
+    </div>
+    
+    <!-- Description -->
+    <div class="mb-6">
+      <label>Descripción</label>
+      <textarea
+        v-model="form.description"
+        placeholder="¿De qué trata este grupo?"
+        rows="3"
+        required
+      ></textarea>
+    </div>
+    
+    <!-- Admin-only messaging toggle -->
+    <div class="flex items-center gap-3 mb-6">
+      <button
+        type="button"
+        @click="form.status = form.status === 1 ? 0 : 1"
+        :class="form.status === 1 ? 'bg-blue-600' : 'bg-gray-600'"
+      >
+        <span :class="form.status === 1 ? 'translate-x-6' : 'translate-x-1'" />
+      </button>
+      <span>Solo admins envían mensajes</span>
+    </div>
+    
+    <button type="submit">Crear Grupo</button>
+  </form>
+</div>
+```
+
+### Group Creation Logic
+
+```javascript
+// From Groups.vue:1069-1085
+async newGroup() {
+  if (!this.form.name.trim()) {
+    return this.addToast('El nombre del grupo es obligatorio', 'warning')
+  }
+  try {
+    if (!this.form.photo) {
+      this.form.photo = `https://ui-avatars.com/api/?name=${encodeURIComponent(this.form.name)}&background=random&color=fff`
+    }
+    await api.post('/group', this.form)
+    await this.loadGroups()
+    this.modalCrearGrupo = false
+    this.addToast('Grupo creado exitosamente', 'success')
+    this.form = { id: 0, name: '', description: '', photo: '', status: false }
+  } catch (e) {
+    this.addToast('Error al crear grupo', 'error')
+  }
+}
+```
+
+<Steps>
+  <Step title="Validate Input">
+    Ensure group name is provided
+  </Step>
+  
+  <Step title="Generate Avatar">
+    Create a default avatar if none is uploaded
+  </Step>
+  
+  <Step title="Create Group">
+    POST to `/group` endpoint with form data
+  </Step>
+  
+  <Step title="Reload Groups">
+    Fetch updated group list from server
+  </Step>
+</Steps>
+
+## Group Interface
+
+### Group Sidebar
+
+The left sidebar displays all groups the user belongs to:
+
+```vue
+<!-- From Groups.vue:3-72 -->
+<aside class="w-full md:w-80 bg-gray-800">
+  <div class="p-6 border-b border-gray-700">
+    <h2 class="text-xl font-bold">
+      <UserGroupIcon class="h-6 w-6 text-green-500" />
+      <span>Grupos</span>
+    </h2>
+    <button @click="modalCrearGrupo = true" title="Crear Grupo">
+      <PlusIcon class="h-5 w-5" />
+    </button>
+  </div>
+  
+  <!-- Group List -->
+  <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-2">
+    <div
+      v-for="group in Grupos"
+      :key="group.id"
+      @click="seleccionarChat(group)"
+      :class="[
+        grupoSeleccionado && grupoSeleccionado.id === group.id
+          ? 'bg-gray-700 text-white border-l-4 border-blue-500'
+          : 'text-gray-300 hover:bg-gray-700/50'
+      ]"
+    >
+      <div class="relative">
+        <img :src="group.photo" class="w-10 h-10 rounded-full" />
+      </div>
+      
+      <div class="flex-1">
+        <span class="font-semibold">{{ group.nombre }}</span>
+        <p class="text-xs text-gray-400">{{ group.mensaje }}</p>
+      </div>
+      
+      <span v-if="group.nuevos > 0" class="bg-blue-600">
+        {{ group.nuevos }}
+      </span>
+    </div>
+    
+    <div v-if="Grupos.length === 0">
+      <p>No perteneces a ningún grupo.</p>
+      <button @click="modalCrearGrupo = true">Crear uno nuevo</button>
+    </div>
+  </nav>
+</aside>
+```
+
+<Info>
+Unread message counts are displayed as badges on each group.
+</Info>
+
+### Group Conversation Panel
+
+The main panel shows the selected group's conversation:
+
+```vue
+<!-- From Groups.vue:74-233 -->
+<div class="flex-1 flex flex-col bg-gray-900">
+  <template v-if="grupoSeleccionado">
+    <!-- Header -->
+    <header class="flex items-center justify-between px-6 py-4">
+      <div class="flex items-center space-x-4">
+        <button @click="grupoSeleccionado = null" class="md:hidden">
+          <ChevronLeftIcon />
+        </button>
+        
+        <div @click="mostrarPerfil = !mostrarPerfil">
+          <img :src="grupoSeleccionado.photo" class="w-10 h-10 rounded-full" />
+          <div>
+            <h2>{{ grupoSeleccionado.nombre }}</h2>
+            <p>{{ grupoSeleccionado.participantes?.length }} participantes</p>
+          </div>
+        </div>
+      </div>
+      
+      <button @click="mostrarPerfil = !mostrarPerfil" title="Info del Grupo">
+        <InformationCircleIcon />
+      </button>
+    </header>
+    
+    <!-- Message History -->
+    <div ref="scrollContainer" class="flex-1 overflow-y-auto p-6">
+      <!-- Messages grouped by date -->
+    </div>
+    
+    <!-- Message Input -->
+    <div class="p-4 bg-gray-800 border-t border-gray-700">
+      <input
+        v-model="nuevoMensaje"
+        type="text"
+        placeholder="Escribe un mensaje al grupo..."
+        @keyup.enter="sendMessage(grupoSeleccionado.id)"
+      />
+      <button @click="sendMessage(grupoSeleccionado.id)">
+        <PaperAirplaneIcon />
+      </button>
+    </div>
+  </template>
+  
+  <template v-else>
+    <div class="flex-1 flex flex-col items-center justify-center">
+      <UserGroupIcon class="w-20 h-20 text-gray-700" />
+      <h3>Comunidad</h3>
+      <p>Selecciona un grupo para ver la conversación</p>
+      <button @click="modalCrearGrupo = true">Crear Nuevo Grupo</button>
+    </div>
+  </template>
+</div>
+```
+
+## Member Management
+
+### Viewing Members
+
+The group info panel shows all participants:
+
+```vue
+<!-- From Groups.vue:257-378 -->
+<div v-if="mostrarPerfil && grupoSeleccionado" class="absolute right-0 w-80 bg-gray-800">
+  <div class="flex justify-between items-center mb-6">
+    <h3>Info. del Grupo</h3>
+    <button @click="mostrarPerfil = false">
+      <XMarkIcon />
+    </button>
+  </div>
+  
+  <div class="flex flex-col items-center mb-6">
+    <img :src="grupoSeleccionado.photo" class="w-28 h-28 rounded-full" />
+    <h2>{{ grupoSeleccionado.nombre }}</h2>
+    <p>{{ grupoSeleccionado.descripcion }}</p>
+  </div>
+  
+  <!-- Admin Controls -->
+  <div class="flex gap-2 mb-6" v-if="isAdmin">
+    <button @click="modalEditarGrupo = true">Editar</button>
+    <button @click="modalAgregarParticipante = true">Agregar Miembros</button>
+  </div>
+  <button @click="showLeaveConfirm = true">Salir</button>
+  
+  <!-- Participant List -->
+  <h3>Participantes ({{ grupoSeleccionado.participantes.length }})</h3>
+  
+  <div class="flex-1 overflow-y-auto space-y-2">
+    <div
+      v-for="p in grupoSeleccionado.participantes"
+      :key="p.id"
+      class="flex items-center justify-between"
+    >
+      <div class="flex items-center gap-3">
+        <img :src="p.photo" class="w-8 h-8 rounded-full" />
+        <div>
+          <p class="font-semibold">
+            <span v-if="p.id == userData.id">Tú</span>
+            <span v-else>{{ p.name }}</span>
+          </p>
+          <span :class="{ 'text-blue-300': p.admin === 1 }">
+            {{ p.admin === 1 ? 'Admin' : 'Miembro' }}
+          </span>
+        </div>
+      </div>
+      
+      <!-- Admin options -->
+      <div v-if="isAdmin && p.id !== userData.id">
+        <button @click="hacerAdmin(p.id)" title="Hacer/Quitar admin">
+          <ShieldCheckIcon />
+        </button>
+        <button @click="openExpelConfirm(p.id)" title="Expulsar">
+          <UserMinusIcon />
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+### Admin Privileges
+
+The system checks if the current user is an admin:
+
+```javascript
+// From Groups.vue:829-836
+isAdmin() {
+  return (
+    this.grupoSeleccionado?.participantes?.some(
+      (p) => p.id === this.userData.id && p.admin === 1
+    ) ?? false
+  )
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="Edit Group" icon="edit">
+    Admins can modify group name, description, and settings
+  </Card>
+  
+  <Card title="Add Members" icon="user-plus">
+    Invite friends to join the group
+  </Card>
+  
+  <Card title="Promote/Demote" icon="shield">
+    Grant or revoke admin privileges
+  </Card>
+  
+  <Card title="Remove Members" icon="user-minus">
+    Expel members from the group
+  </Card>
+</CardGroup>
+
+### Adding Members
+
+```vue
+<!-- From Groups.vue:391-476 -->
+<div v-if="modalAgregarParticipante">
+  <div class="bg-gray-800 rounded-2xl p-6">
+    <h2>Agregar Miembros</h2>
+    
+    <!-- Search -->
+    <input
+      v-model="searchFriend"
+      type="text"
+      placeholder="Buscar amigo..."
+    />
+    
+    <!-- Friend List -->
+    <ul class="max-h-60 overflow-y-auto">
+      <li
+        v-for="contacto in filteredFriends"
+        :key="contacto.email"
+        class="flex items-center justify-between p-3"
+      >
+        <div class="flex items-center space-x-3">
+          <div class="bg-blue-600 w-10 h-10 rounded-full">
+            {{ contacto.nombre.charAt(0) }}
+          </div>
+          <div>
+            <p class="font-bold">{{ contacto.nombre }}</p>
+            <p class="text-xs">{{ contacto.email }}</p>
+          </div>
+        </div>
+        
+        <button
+          v-if="!contacto.member"
+          @click="addToGroup(contacto)"
+        >
+          Agregar
+        </button>
+        <button v-else disabled>Agregado</button>
+      </li>
+    </ul>
+  </div>
+</div>
+```
+
+### Adding Members Logic
+
+```javascript
+// From Groups.vue:1119-1130
+async addToGroup(contacto) {
+  try {
+    await api.post(`/group/${this.grupoSeleccionado.id}/member/${contacto.id}`)
+    this.addToast('Participante agregado', 'success')
+    // Refresh group data to show new member
+    await this.loadGroups()
+    // Update local selection to reflect changes
+    this.grupoSeleccionado = this.Grupos.find((g) => g.id === this.grupoSeleccionado.id) || null
+  } catch (e) {
+    this.addToast('Error al agregar miembro', 'error')
+  }
+}
+```
+
+### Promoting to Admin
+
+```javascript
+// From Groups.vue:1099-1118
+async hacerAdmin(userId) {
+  try {
+    await api.put(`/group/${this.grupoSeleccionado.id}/member/${userId}`)
+    
+    let esAdmin = false
+    this.grupoSeleccionado.participantes = this.grupoSeleccionado.participantes.map((p) => {
+      if (p.id === userId) {
+        esAdmin = p.admin !== 1
+        return { ...p, admin: p.admin == 1 ? 0 : 1 }
+      }
+      return p
+    })
+    this.addToast(
+      esAdmin ? 'Usuario ahora es administrador' : 'Usuario ya no es administrador',
+      'success'
+    )
+  } catch (e) {
+    this.addToast('Error al asignar admin', 'error')
+  }
+}
+```
+
+### Removing Members
+
+```javascript
+// From Groups.vue:1148-1163
+async expulsar(userId) {
+  try {
+    await api.delete(`/group/${this.grupoSeleccionado.id}/member/${userId}`)
+    
+    // Remove locally
+    if (this.grupoSeleccionado) {
+      this.grupoSeleccionado.participantes = this.grupoSeleccionado.participantes.filter(
+        (p) => p.id !== userId
+      )
+    }
+    
+    this.addToast('Miembro expulsado/salido correctamente', 'success')
+  } catch (e) {
+    this.addToast('Error al expulsar/salir', 'error')
+  }
+}
+```
+
+## Editing Groups
+
+Admins can modify group settings:
+
+```vue
+<!-- From Groups.vue:478-587 -->
+<div v-if="modalEditarGrupo">
+  <form @submit.prevent="editGroup">
+    <h3>Editar Grupo</h3>
+    
+    <!-- Photo -->
+    <div class="flex flex-col items-center mb-6">
+      <div class="relative group cursor-pointer">
+        <img :src="form.photo" class="w-full h-full rounded-full" />
+        <div class="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100">
+          <PencilIcon class="w-8 h-8 text-white" />
+        </div>
+        <input type="file" @change="onFileChange" class="absolute inset-0 opacity-0" />
+      </div>
+      <p>Click para cambiar foto</p>
+    </div>
+    
+    <!-- Name -->
+    <div class="mb-4">
+      <label>Nombre del grupo</label>
+      <input v-model="form.name" type="text" required />
+    </div>
+    
+    <!-- Description -->
+    <div class="mb-6">
+      <label>Descripción</label>
+      <textarea v-model="form.description" rows="3" required></textarea>
+    </div>
+    
+    <!-- Admin-only toggle -->
+    <div class="flex items-center gap-3 mb-6">
+      <button
+        type="button"
+        @click="form.status = form.status === 1 ? 0 : 1"
+        :class="form.status === 1 ? 'bg-blue-600' : 'bg-gray-600'"
+      >
+        <span :class="form.status === 1 ? 'translate-x-6' : 'translate-x-1'" />
+      </button>
+      <span>Solo admins envían mensajes</span>
+    </div>
+    
+    <button type="submit">Guardar Cambios</button>
+  </form>
+</div>
+```
+
+### Edit Group Logic
+
+```javascript
+// From Groups.vue:1086-1098
+async editGroup() {
+  if (!this.form.name.trim()) {
+    return this.addToast('El nombre del grupo es obligatorio', 'warning')
+  }
+  try {
+    await api.put(`/group/${this.form.id}`, this.form)
+    await this.loadGroups()
+    this.modalEditarGrupo = false
+    this.addToast('Grupo editado exitosamente', 'success')
+  } catch (e) {
+    this.addToast('Error al editar grupo', 'error')
+  }
+}
+```
+
+## Admin-Only Messaging
+
+Groups can be configured to restrict messaging to admins only:
+
+<Accordion title="How Admin-Only Mode Works">
+  When `status` is set to `1`, only users with `admin === 1` can send messages:
+  
+  ```javascript
+  // From Groups.vue:1167-1171
+  if (this.grupoSeleccionado.status == 1 && !this.isAdmin) {
+    this.addToast('Solo los administradores pueden enviar mensajes', 'warning')
+    return
+  }
+  ```
+  
+  The UI displays a notice to non-admin users:
+  
+  ```vue
+  <div v-if="grupoSeleccionado.status == 1 && !isAdmin">
+    <ShieldCheckIcon class="w-5 h-5 text-blue-400" />
+    <p>Solo los administradores pueden enviar mensajes en este grupo.</p>
+  </div>
+  ```
+</Accordion>
+
+<Info>
+This feature is useful for announcement channels where only moderators should post.
+</Info>
+
+## Loading Groups
+
+Groups are loaded from the API on component mount:
+
+```javascript
+// From Groups.vue:986-1058
+async loadGroups() {
+  try {
+    const response = await api.get('/groups')
+    const temp = response.data.data
+    
+    // Ensure each group has at least one admin
+    temp.forEach((u) => {
+      if (u.participants && u.participants.length > 0) {
+        const hasAdmin = u.participants.some((p) => p.admin === 1)
+        if (!hasAdmin) {
+          u.participants[0].admin = 1
+          api.put(`/group/${u.id}/member/${u.participants[0].id}`).catch(() => {})
+        }
+      }
+    })
+    
+    this.Grupos = temp.map((u) => {
+      const msgs = u.messages || []
+      
+      // Process messages to detect stream invitations
+      const mensajesProcesados = msgs.map((m) => {
+        const texto = m.message || ''
+        const match = texto.match(/^<<<(.+?)>>>$/)
+        
+        if (match) {
+          const link = match[1]
+          return {
+            ...m,
+            type: 'sala',
+            link: link,
+            titulo: 'Invitación a sala',
+            descripcion: 'Haz clic para unirte a la videollamada',
+            created_at: m.created_at || new Date().toISOString()
+          }
+        }
+        
+        return {
+          ...m,
+          type: 'normal',
+          created_at: m.created_at || new Date().toISOString()
+        }
+      })
+      
+      const ultimo = mensajesProcesados.length > 0 
+        ? mensajesProcesados[mensajesProcesados.length - 1] 
+        : null
+      
+      return {
+        id: u.id,
+        nombre: u.name,
+        descripcion: u.description,
+        f_creado: u.date_c,
+        mensaje: ultimo
+          ? ultimo.type === 'sala'
+            ? '📹 Invitación a sala'
+            : ultimo.message
+          : 'Sin mensajes',
+        nuevos: 0,
+        photo: u.photo,
+        mensajes: mensajesProcesados,
+        participantes: u.participants || [],
+        status: u.status
+      }
+    })
+  } catch (error) {
+    this.addToast('Error al cargar grupos', 'error')
+  }
+}
+```
+
+<Steps>
+  <Step title="Fetch Groups">
+    GET request to `/groups` endpoint
+  </Step>
+  
+  <Step title="Ensure Admin">
+    Verify each group has at least one admin
+  </Step>
+  
+  <Step title="Process Messages">
+    Parse and format messages, detecting special types
+  </Step>
+  
+  <Step title="Map to UI Format">
+    Transform API data to component-friendly structure
+  </Step>
+</Steps>
+
+## Leaving a Group
+
+Members can leave groups they belong to:
+
+```javascript
+// From Groups.vue:1131-1136
+async confirmLeaveGroup() {
+  this.showLeaveConfirm = false
+  await this.expulsar(this.userData.id)
+  // If you leave, deselect
+  this.grupoSeleccionado = null
+}
+```
+
+<Warning>
+If the last admin leaves, the system automatically promotes the first member to admin to ensure continuity.
+</Warning>
+
+## Stream Invitations
+
+Groups can receive invitations to join live streams:
+
+```vue
+<!-- From Groups.vue:707-741 -->
+<Transition name="modal">
+  <div v-show="showStreamModal" class="fixed inset-0 z-[60]">
+    <div class="bg-gray-900 rounded-3xl p-8 text-center">
+      <div class="w-20 h-20 bg-blue-500/10 rounded-full mx-auto mb-6">
+        <VideoCameraIcon class="w-10 h-10 text-blue-500" />
+      </div>
+      
+      <h3>¿Ingresar a la reunión?</h3>
+      
+      <div class="grid grid-cols-2 gap-4">
+        <button @click="showStreamModal = false">Cancelar</button>
+        <button @click="joinStream">Unirse ahora</button>
+      </div>
+    </div>
+  </div>
+</Transition>
+```
+
+### Joining from Invitation
+
+```javascript
+// From Groups.vue:1200-1216
+modalStream(link) {
+  this.showStreamModal = true
+  this.idMeet = link
+}
+
+async joinStream() {
+  try {
+    this.idMeet = this.idMeet.slice(3, -3)
+    router.push({
+      name: 'request-live',
+      params: { id: this.idMeet }
+    })
+  } catch (e) {
+    this.addToast('Error al unirse a la transmisión', 'error')
+    return
+  }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Clear Group Names" icon="tag">
+    Use descriptive names that indicate the group's purpose
+  </Card>
+  
+  <Card title="Set Expectations" icon="info">
+    Use the description field to explain group rules and purpose
+  </Card>
+  
+  <Card title="Promote Responsibly" icon="shield-check">
+    Only grant admin privileges to trusted members
+  </Card>
+  
+  <Card title="Use Admin-Only Mode" icon="lock">
+    Enable admin-only messaging for announcement channels
+  </Card>
+</CardGroup>
+
+<Tip>
+Regularly review your group member list and remove inactive participants to maintain engagement.
+</Tip>

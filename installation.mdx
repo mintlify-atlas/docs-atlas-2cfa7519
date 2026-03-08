@@ -1,0 +1,481 @@
+---
+title: 'Installation'
+description: 'Complete installation guide for EduStream. Set up Node.js, install dependencies, configure environment variables, and run the development server.'
+---
+
+Get EduStream up and running on your local machine. This guide covers everything from prerequisites to running your first development server.
+
+## Prerequisites
+
+Before installing EduStream, ensure you have the following tools installed on your system:
+
+<CardGroup cols={2}>
+  <Card title="Node.js" icon="node-js">
+    **Version Required**: 20.19.0+ or 22.12.0+
+    
+    Download from [nodejs.org](https://nodejs.org/)
+  </Card>
+  
+  <Card title="npm" icon="box">
+    **Version Required**: 8.0.0+
+    
+    Comes bundled with Node.js
+  </Card>
+  
+  <Card title="Git" icon="git-alt">
+    **Version Required**: 2.0.0+
+    
+    Download from [git-scm.com](https://git-scm.com/)
+  </Card>
+  
+  <Card title="Modern Browser" icon="browser">
+    Chrome, Firefox, Safari, or Edge
+    
+    For WebRTC support
+  </Card>
+</CardGroup>
+
+<Warning>
+  EduStream requires specific Node.js versions as defined in package.json. Using incompatible versions may result in build or runtime errors.
+</Warning>
+
+### Verify Node.js Installation
+
+Check your Node.js version:
+
+```bash
+node --version
+# Should output: v20.19.0 or v22.12.0+
+```
+
+Check npm version:
+
+```bash
+npm --version
+# Should output: 8.0.0+
+```
+
+## Backend Server Setup
+
+<Info>
+  EduStream is a frontend application that requires a backend server for authentication, Socket.io, and PeerJS connections. Make sure your backend server is running on `http://localhost:3001` before starting the frontend.
+</Info>
+
+The frontend expects the following backend services:
+
+1. **REST API Server** (port 3001) - For authentication and data
+2. **Socket.io Server** (port 3001) - For real-time messaging
+3. **PeerJS Server** (port 3001) - For WebRTC signaling
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone the Repository">
+    Get the EduStream source code from your repository:
+
+    ```bash
+    git clone <your-repository-url>
+    cd streamming
+    ```
+
+    <Tip>
+      Replace `<your-repository-url>` with your actual repository URL.
+    </Tip>
+  </Step>
+
+  <Step title="Install Dependencies">
+    Install all required npm packages using the lockfile to ensure consistent versions:
+
+    ```bash
+    npm install
+    ```
+
+    This will install all dependencies defined in `package.json`:
+
+    ```json
+    {
+      "dependencies": {
+        "@api.video/react-upload-button": "^0.0.2",
+        "@heroicons/vue": "^2.2.0",
+        "axios": "^1.13.2",
+        "bcryptjs": "^3.0.3",
+        "chart.js": "^4.5.1",
+        "hls.js": "^1.6.15",
+        "leaflet": "^1.9.4",
+        "livekit-client": "^2.17.1",
+        "peerjs": "^1.5.5",
+        "pinia": "^3.0.3",
+        "socket.io-client": "^4.8.1",
+        "uuid": "^13.0.0",
+        "vue": "^3.5.18",
+        "vue-chartjs": "^5.3.3",
+        "vue-router": "^4.5.1",
+        "vue3-leaflet": "^1.0.50"
+      }
+    }
+    ```
+
+    <Note>
+      The installation includes development dependencies like TypeScript, Vite, ESLint, and Tailwind CSS. The process may take a few minutes depending on your internet connection.
+    </Note>
+  </Step>
+
+  <Step title="Configure Backend Endpoints">
+    EduStream connects to backend services through configuration files. By default, it connects to `localhost:3001`.
+
+    ### API Configuration
+
+    The API client is configured in `src/services/api.js`:
+
+    ```javascript
+    import axios from 'axios'
+
+    const api = axios.create({
+      baseURL: 'http://localhost:3001/api',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    api.interceptors.request.use(
+      (config) => {
+        const token = localStorage.getItem('token')
+
+        // Public routes that don't require token
+        const publicRoutes = [
+          { url: '/login', method: 'post' },
+        ]
+
+        const url = config.url.startsWith('/') ? config.url : `/${config.url}`
+        const method = config.method.toLowerCase()
+
+        const isPublic = publicRoutes.some(
+          (route) => route.url === url && route.method === method,
+        )
+
+        if (token && !isPublic) {
+          config.headers.Authorization = `Bearer ${token}`
+        }
+
+        return config
+      },
+      (error) => {
+        return Promise.reject(error)
+      },
+    )
+    export default api
+    ```
+
+    ### Socket.io Configuration
+
+    Real-time connections are configured in `src/services/socket.js`:
+
+    ```javascript
+    import { io } from 'socket.io-client'
+
+    const socket = io('http://localhost:3001', {
+      autoConnect: true,
+    })
+
+    export default socket
+    ```
+
+    ### PeerJS Configuration
+
+    WebRTC signaling is configured in `src/services/peerService.js`:
+
+    ```javascript
+    import { Peer } from "peerjs";
+
+    export const createPeer = (id = null) => {
+      return new Peer(id, {
+        host: 'localhost',
+        port: 3001,
+        path: '/',
+        secure: false
+      });
+    };
+    ```
+
+    <Warning>
+      For production deployments, update these URLs to use HTTPS/WSS and point to your production backend servers. Set `secure: true` in the PeerJS configuration when using HTTPS.
+    </Warning>
+  </Step>
+
+  <Step title="Start the Development Server">
+    Launch the Vite development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    You should see output similar to:
+
+    ```bash
+    VITE v7.0.6  ready in 324 ms
+
+    ➜  Local:   http://localhost:5173/
+    ➜  Network: use --host to expose
+    ➜  press h + enter to show help
+    ```
+
+    The application is now running at `http://localhost:5173`.
+
+    <Info>
+      Vite's hot module replacement (HMR) automatically refreshes your browser when you make changes to the source code. No need to manually reload!
+    </Info>
+  </Step>
+
+  <Step title="Verify the Installation">
+    Open your browser and navigate to `http://localhost:5173`. You should see the EduStream landing page.
+
+    Check the browser console (F12) for any errors. A successful installation should show:
+    - No console errors
+    - Socket.io connection established
+    - Application loads without issues
+
+    <Tip>
+      If you see Socket.io connection errors, verify that your backend server is running on port 3001.
+    </Tip>
+  </Step>
+</Steps>
+
+## Project Structure
+
+Understanding the project structure will help you navigate and customize EduStream:
+
+```
+streamming/
+├── public/              # Static assets
+│   └── images/         # Image files
+├── src/
+│   ├── assets/         # Vue assets (CSS, images)
+│   ├── components/     # Reusable Vue components
+│   │   ├── calls/     # Video call components
+│   │   └── Settings/  # Settings components
+│   ├── layouts/        # Layout components
+│   ├── router/         # Vue Router configuration
+│   │   └── index.ts   # Route definitions
+│   ├── services/       # API and service clients
+│   │   ├── api.js     # Axios API client
+│   │   ├── socket.js  # Socket.io client
+│   │   └── peerService.js  # PeerJS configuration
+│   ├── stores/         # Pinia state management
+│   │   └── callStore.js
+│   ├── views/          # Page components
+│   ├── App.vue         # Root component
+│   ├── main.ts         # Application entry point
+│   └── index.css       # Global styles
+├── index.html          # HTML template
+├── package.json        # Dependencies and scripts
+├── vite.config.ts      # Vite configuration
+├── tailwind.config.js  # Tailwind CSS configuration
+└── tsconfig.json       # TypeScript configuration
+```
+
+## Available Scripts
+
+EduStream includes several npm scripts for development and production:
+
+<CodeGroup>
+
+```bash Development Server
+npm run dev
+# Starts Vite development server with HMR
+# Default: http://localhost:5173
+```
+
+```bash Build for Production
+npm run build
+# Runs type checking and builds for production
+# Output: dist/ directory
+```
+
+```bash Type Checking
+npm run type-check
+# Runs Vue TypeScript compiler to check types
+```
+
+```bash Preview Production Build
+npm run preview
+# Preview the production build locally
+```
+
+```bash Linting
+npm run lint
+# Runs ESLint with auto-fix enabled
+```
+
+```bash Code Formatting
+npm run format
+# Formats code with Prettier
+```
+
+</CodeGroup>
+
+## Configuration Files
+
+### Vite Configuration
+
+The build tool is configured in `vite.config.ts`:
+
+```typescript
+import { fileURLToPath, URL } from 'node:url'
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import vueDevTools from 'vite-plugin-vue-devtools'
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    // vueDevTools(), // Uncomment to enable Vue DevTools
+  ],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url))
+    },
+  },
+})
+```
+
+<Tip>
+  The `@` alias allows you to import files using `@/` instead of relative paths. For example: `import api from '@/services/api'`
+</Tip>
+
+### Tailwind CSS
+
+Tailwind is configured in `tailwind.config.js`:
+
+```javascript
+module.exports = {
+  content: [
+    "./index.html",
+    "./src/**/*.{vue,js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+```
+
+### Application Entry Point
+
+The Vue application is initialized in `src/main.ts`:
+
+```typescript
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import router from './router'
+import './index.css'
+import App from './App.vue'
+
+const app = createApp(App)
+
+app.use(createPinia())
+
+createApp(App).use(router).mount('#app')
+```
+
+## Environment-Specific Configuration
+
+For different environments (development, staging, production), you can create environment files:
+
+<Info>
+  While the current setup uses hardcoded URLs in service files, you can migrate to environment variables using Vite's env system.
+</Info>
+
+Create `.env.local` for local development:
+
+```bash
+# .env.local
+VITE_API_URL=http://localhost:3001/api
+VITE_SOCKET_URL=http://localhost:3001
+VITE_PEER_HOST=localhost
+VITE_PEER_PORT=3001
+```
+
+Then update your service files to use these variables:
+
+```javascript
+// src/services/api.js
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+```
+
+## Troubleshooting
+
+### Port Already in Use
+
+If port 5173 is already in use, Vite will automatically try the next available port. You can also specify a custom port:
+
+```bash
+npm run dev -- --port 3000
+```
+
+### Node Version Mismatch
+
+If you encounter Node version errors:
+
+1. Check your Node version: `node --version`
+2. Install the required version using [nvm](https://github.com/nvm-sh/nvm):
+   ```bash
+   nvm install 22.12.0
+   nvm use 22.12.0
+   ```
+
+### Dependency Installation Failures
+
+If `npm install` fails:
+
+1. Clear npm cache: `npm cache clean --force`
+2. Delete `node_modules` and `package-lock.json`
+3. Run `npm install` again
+
+### Backend Connection Issues
+
+If the frontend can't connect to the backend:
+
+1. Verify the backend server is running on port 3001
+2. Check firewall settings
+3. Review browser console for CORS errors
+4. Ensure all three backend services (API, Socket.io, PeerJS) are running
+
+### Build Errors
+
+If the build fails:
+
+1. Run type checking: `npm run type-check`
+2. Check for linting errors: `npm run lint`
+3. Review the error output for specific issues
+4. Ensure all dependencies are properly installed
+
+## Next Steps
+
+Now that you have EduStream installed, you're ready to start using it:
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Follow our quickstart guide to start streaming
+  </Card>
+  
+  <Card title="Architecture Guide" icon="code" href="/development/architecture">
+    Learn about EduStream's architecture
+  </Card>
+  
+  <Card title="Live Streaming" icon="video" href="/features/live-streaming">
+    Learn about live streaming features
+  </Card>
+  
+  <Card title="Video Calls" icon="phone" href="/features/video-calls">
+    Set up video and audio calls
+  </Card>
+</CardGroup>
+
+<Note>
+  Ready to start? Head over to the [Quickstart Guide](/quickstart) to create your first stream!
+</Note>

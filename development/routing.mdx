@@ -1,0 +1,393 @@
+---
+title: 'Routing'
+description: 'Vue Router configuration, route definitions, and navigation patterns in EduStream'
+---
+
+## Overview
+
+EduStream uses Vue Router 4.5 for client-side routing. The application features a multi-layout structure with nested routes for dashboard functionality and standalone pages for authentication and live streaming.
+
+## Router Configuration
+
+The router is configured in `src/router/index.ts` using HTML5 history mode:
+
+```typescript src/router/index.ts
+import { createRouter, createWebHistory } from 'vue-router'
+
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes,
+})
+
+export default router
+```
+
+<Info>
+  The router uses `createWebHistory` for clean URLs without hash fragments. This requires server-side configuration to redirect all requests to `index.html`.
+</Info>
+
+## Route Structure
+
+### Public Routes
+
+These routes are accessible without authentication:
+
+<CodeGroup>
+```typescript Home & Login
+{
+  path: '/',
+  name: 'home',
+  component: Home,
+},
+{
+  path: '/login',
+  name: 'login',
+  component: Login,
+}
+```
+
+```typescript Live Streaming
+{
+  path: '/liveHost/:id',
+  name: 'live',
+  component: Live,
+},
+{
+  path: '/liveViewer/:link/:id',
+  name: 'live-viewer',
+  component: LiveViewer,
+}
+```
+
+```typescript Test Routes
+{
+  path: '/host',
+  name: 'request-A',
+  component: Host,
+},
+{
+  path: '/viewer',
+  name: 'request-B',
+  component: Viewer,
+}
+```
+</CodeGroup>
+
+### Dashboard Routes
+
+The dashboard uses a nested route structure with `MainLayout` as the parent:
+
+```typescript src/router/index.ts
+{
+  path: '/dashboard',
+  name: 'dashboard',
+  component: MainLayout,
+  children: [
+    {
+      path: 'statistics',
+      name: 'statistics',
+      component: Dashboard,
+    },
+    {
+      path: 'users',
+      name: 'users',
+      component: Users
+    },
+    {
+      path: 'chats',
+      name: 'chats',
+      component: Chats
+    },
+    {
+      path: 'groups',
+      name: 'groups',
+      component: Groups
+    },
+    {
+      path: 'transmitions',
+      name: 'transmitions',
+      component: Transmitions
+    },
+    // ... more routes
+  ]
+}
+```
+
+<Note>
+  All dashboard child routes render inside the `<router-view>` of `MainLayout`, providing consistent navigation and layout.
+</Note>
+
+## Dynamic Routes
+
+### Call Routes
+
+EduStream implements separate routes for different call states:
+
+```typescript Call Management
+{
+  path: 'calling/:id',
+  name: 'calling',
+  component: CallingComponent,
+},
+{
+  path: 'call/:id',
+  name: 'call',
+  component: CallComponente,
+},
+{
+  path: 'miniCall',
+  name: 'mini-call',
+  component: MiniCallComponent,
+}
+```
+
+### Route Parameters
+
+<Tabs>
+  <Tab title="Call ID">
+    ```typescript
+    // Access call ID in component
+    import { useRoute } from 'vue-router'
+    
+    const route = useRoute()
+    const callId = route.params.id
+    ```
+  </Tab>
+  <Tab title="Live Stream">
+    ```typescript
+    // Access live stream parameters
+    const route = useRoute()
+    const link = route.params.link
+    const streamId = route.params.id
+    ```
+  </Tab>
+</Tabs>
+
+## Nested Routes
+
+### Settings Routes
+
+The settings section uses deeply nested routes:
+
+```typescript src/router/index.ts
+{
+  path: 'settings',
+  name: 'settings',
+  component: Settings,
+  children: [
+    {
+      path: 'profile',
+      name: 'profile',
+      component: ProfileComponent
+    },
+    {
+      path: 'security',
+      name: 'security',
+      component: SecurityComponent
+    },
+    {
+      path: 'privacity',
+      name: 'privacity',
+      component: PrivacityComponent
+    },
+  ],
+}
+```
+
+### Route Hierarchy
+
+```
+/dashboard (MainLayout)
+  └── /settings (Settings)
+        ├── /profile (ProfileComponent)
+        ├── /security (SecurityComponent)
+        └── /privacity (PrivacityComponent)
+```
+
+<Warning>
+  Each level of nesting requires a `<router-view>` component to render its children.
+</Warning>
+
+## Programmatic Navigation
+
+### Using Router in Components
+
+```typescript Navigating to Routes
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+// Navigate to a named route
+router.push({ name: 'chats' })
+
+// Navigate with parameters
+router.push({
+  name: 'call',
+  params: { id: userId }
+})
+
+// Navigate to live stream
+router.push({
+  name: 'live-viewer',
+  params: {
+    link: streamLink,
+    id: streamId
+  }
+})
+```
+
+### Router Methods
+
+<CodeGroup>
+```typescript Push
+// Add entry to history stack
+router.push('/dashboard/chats')
+router.push({ name: 'users' })
+```
+
+```typescript Replace
+// Replace current history entry
+router.replace({ name: 'login' })
+```
+
+```typescript Go
+// Navigate through history
+router.go(-1)  // Go back
+router.go(1)   // Go forward
+```
+</CodeGroup>
+
+## Route Access Patterns
+
+### Accessing Route Information
+
+```typescript Component Setup
+<script setup>
+import { useRoute, useRouter } from 'vue-router'
+
+const route = useRoute()
+const router = useRouter()
+
+// Access route data
+const currentPath = route.path
+const routeName = route.name
+const params = route.params
+const query = route.query
+</script>
+```
+
+## Layout Strategy
+
+### Main Layout
+
+The `MainLayout` component wraps all dashboard routes:
+
+```vue Layout Structure
+<template>
+  <div class="dashboard-layout">
+    <Sidebar />
+    <main>
+      <router-view />  <!-- Child routes render here -->
+    </main>
+  </div>
+</template>
+```
+
+### Standalone Pages
+
+Routes like `/login`, `/liveHost/:id`, and `/liveViewer/:link/:id` render without the dashboard layout:
+
+```typescript Standalone Routes
+// No parent layout - full control over UI
+{
+  path: '/login',
+  name: 'login',
+  component: Login,
+}
+```
+
+## Route Organization
+
+### By Feature
+
+- **Authentication**: `/`, `/login`
+- **Dashboard**: `/dashboard/*`
+- **Communication**: `/dashboard/chats`, `/dashboard/call/:id`
+- **Live Streaming**: `/liveHost/:id`, `/liveViewer/:link/:id`
+- **Settings**: `/dashboard/settings/*`
+- **Testing**: `/host`, `/viewer`
+
+<Note>
+  The route structure mirrors the application's feature organization, making it intuitive to navigate the codebase.
+</Note>
+
+## Best Practices
+
+### Named Routes
+
+Always use named routes for navigation:
+
+```typescript
+// Good
+router.push({ name: 'call', params: { id: '123' } })
+
+// Avoid
+router.push(`/dashboard/call/123`)
+```
+
+### Route Guards
+
+<Info>
+  While not currently implemented in the codebase, authentication guards should be added to protect dashboard routes.
+</Info>
+
+```typescript Example Auth Guard
+router.beforeEach((to, from, next) => {
+  const isAuthenticated = checkAuth()
+  
+  if (to.path.startsWith('/dashboard') && !isAuthenticated) {
+    next({ name: 'login' })
+  } else {
+    next()
+  }
+})
+```
+
+## Common Patterns
+
+### Call Flow Navigation
+
+```typescript Call Navigation Pattern
+// Step 1: Initiate call (calling screen)
+router.push({ name: 'calling', params: { id: targetId } })
+
+// Step 2: Call accepted (active call)
+router.push({ name: 'call', params: { id: targetId } })
+
+// Step 3: Minimize call (continue using app)
+router.push({ name: 'mini-call' })
+```
+
+### Live Stream Workflow
+
+```typescript Stream Navigation
+// Host starts stream
+router.push({ name: 'live', params: { id: streamId } })
+
+// Viewer joins stream
+router.push({
+  name: 'live-viewer',
+  params: { link: shareLink, id: streamId }
+})
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" href="/development/architecture">
+    Back to system architecture overview
+  </Card>
+  <Card title="State Management" href="/development/state-management">
+    Learn about Pinia stores
+  </Card>
+</CardGroup>

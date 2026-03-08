@@ -1,0 +1,308 @@
+---
+title: Hosting a Stream
+description: Learn how to create and manage live streaming sessions on EduStream
+---
+
+## Overview
+
+EduStream allows you to host live video streaming sessions for educational purposes. As a host, you control participant access, manage audio/video settings, share your screen, and record sessions.
+
+## Starting a Stream
+
+Before starting your stream, ensure you have:
+
+- A working camera and microphone
+- Stable internet connection
+- Browser permissions for camera/microphone access
+
+<Note>
+  When you start a stream, the platform will request permission to access your camera and microphone. You must allow these permissions to proceed.
+</Note>
+
+## Host Interface Overview
+
+The host interface is divided into four main sections:
+
+<CardGroup cols={2}>
+  <Card title="Left Panel" icon="users">
+    Participants list and waiting room management
+  </Card>
+  
+  <Card title="Center Panel" icon="display">
+    Main video display and controls
+  </Card>
+  
+  <Card title="Right Panel (Top)" icon="video">
+    Active participant thumbnails
+  </Card>
+  
+  <Card title="Right Panel (Bottom)" icon="message">
+    Chat interface (when expanded)
+  </Card>
+</CardGroup>
+
+## Managing Participants
+
+### Waiting Room
+
+When viewers request to join, they appear in the "Sala de espera" (Waiting Room):
+
+<Steps>
+  <Step title="View Pending Requests">
+    The left panel shows users waiting to join with their names.
+  </Step>
+  
+  <Step title="Admit or Reject">
+    For each waiting user, you have two options:
+    - **Green checkmark**: Admit the user to the stream
+    - **Red X**: Reject the join request
+  </Step>
+  
+  <Step title="User Joins">
+    Once admitted, the user appears in "En la reunión" (In the meeting) list.
+  </Step>
+</Steps>
+
+### Participant Controls
+
+For participants already in the stream:
+
+<Accordion title="View Participant Status">
+  Each participant shows:
+  - Name or email
+  - Microphone status (green if active, red if muted)
+  - Three-dot menu for actions
+</Accordion>
+
+<Accordion title="Available Actions">
+  Click the three-dot menu next to a participant to:
+  - **Silenciar** (Mute): Mute their microphone
+  - **Expulsar** (Expel): Remove them from the stream
+</Accordion>
+
+## Stream Controls
+
+At the bottom center of the screen, you'll find essential streaming controls:
+
+### Audio/Video Controls
+
+<CardGroup cols={2}>
+  <Card title="Microphone" icon="microphone">
+    Toggle your microphone on/off
+    
+    - Gray background: Microphone active
+    - Red background: Microphone muted
+  </Card>
+  
+  <Card title="Camera" icon="video">
+    Toggle your camera on/off
+    
+    - Video icon: Camera active
+    - Slashed video icon: Camera off
+  </Card>
+</CardGroup>
+
+### Screen Sharing
+
+<Steps>
+  <Step title="Click Screen Share Button">
+    Click the monitor/desktop icon to start sharing your screen.
+  </Step>
+  
+  <Step title="Select What to Share">
+    Your browser will prompt you to choose:
+    - Entire screen
+    - Application window
+    - Browser tab
+  </Step>
+  
+  <Step title="Share Active">
+    When sharing:
+    - The button turns blue
+    - Your camera feed moves to a small picture-in-picture window
+    - Participants see your shared screen
+  </Step>
+  
+  <Step title="Stop Sharing">
+    Click the button again or use your browser's stop sharing button.
+  </Step>
+</Steps>
+
+<Tip>
+  Screen sharing is ideal for presentations, demonstrations, and educational content.
+</Tip>
+
+## Recording Your Stream
+
+EduStream integrates with api.video for professional stream recording:
+
+### Starting a Recording
+
+<Steps>
+  <Step title="Enable Screen Sharing First">
+    You must be sharing your screen before starting a recording.
+  </Step>
+  
+  <Step title="Click Record Button">
+    The record button shows:
+    - White circle icon when not recording
+    - Stop icon when recording is active
+  </Step>
+  
+  <Step title="Recording Active">
+    When recording:
+    - Button turns red
+    - Screen content and audio are captured
+    - Recording continues even if you toggle camera/mic
+  </Step>
+</Steps>
+
+### Stopping and Accessing Recording
+
+<Steps>
+  <Step title="Stop Recording">
+    Click the red record button to stop.
+  </Step>
+  
+  <Step title="Upload Progress">
+    A modal shows upload progress:
+    - Progress bar (0-100%)
+    - Upload status message
+    - Cancel option (if needed)
+  </Step>
+  
+  <Step title="Recording Ready">
+    When complete, a modal displays:
+    - Video player URL
+    - Embed code (iframe)
+    - Copy link button
+    - Video preview
+  </Step>
+</Steps>
+
+<Info>
+  Recordings are automatically uploaded to api.video and stored for future access.
+</Info>
+
+## Stream Options Menu
+
+Click the three-dot menu in the top-left participant panel to access:
+
+<Accordion title="End Transmission">
+  **Finalizar transmisión** (End transmission)
+  - Stops the stream for all participants
+  - Closes all connections
+  - Updates stream status to "finished"
+  - Redirects to transmissions list
+</Accordion>
+
+<Accordion title="Share Stream">
+  **Compartir** (Share)
+  - Opens a modal to share the stream link
+  - Search for groups
+  - Select multiple groups
+  - Send invitation messages
+</Accordion>
+
+### Ending Your Stream
+
+<Steps>
+  <Step title="Click End Stream">
+    Select "Finalizar transmisión" from the options menu.
+  </Step>
+  
+  <Step title="Confirm Action">
+    A confirmation modal appears asking if you're sure.
+  </Step>
+  
+  <Step title="Stream Ends">
+    Upon confirmation:
+    - All participants are disconnected
+    - Media streams are stopped
+    - Recording link is saved (if recorded)
+    - You're redirected to the transmissions page
+  </Step>
+</Steps>
+
+## Video Display Features
+
+### Main Video Area
+
+The center screen displays:
+
+- **Your stream**: By default, shows your camera or screen share
+- **Participant stream**: Click any participant thumbnail to show them full-screen
+- **Timer**: Live stream duration in the top-left
+- **Viewer count**: Number of active participants in the top-right
+
+<Tip>
+  Double-click the main video area to return to your own stream view.
+</Tip>
+
+### Participant Thumbnails
+
+The right panel shows mini video feeds:
+
+- **Host thumbnail**: Shows you (marked as "Tú (Host)")
+- **Viewer thumbnails**: All admitted participants
+- **Audio indicators**: Microphone icon showing mute status
+- **Screen share indicator**: Blue monitor icon when sharing
+
+<Note>
+  Click any thumbnail to display that participant's video in the main area.
+</Note>
+
+## Mobile Streaming
+
+On mobile devices:
+
+- Tap the **user group icon** to show/hide participants panel
+- Tap the **chat icon** to show/hide chat
+- Panels appear as overlays on smaller screens
+- Tap outside panels to dismiss them
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Test Before Going Live" icon="vial">
+    Check your camera, microphone, and screen sharing before admitting participants.
+  </Card>
+  
+  <Card title="Manage Waiting Room Promptly" icon="clock">
+    Admit participants quickly to avoid making them wait unnecessarily.
+  </Card>
+  
+  <Card title="Mute Disruptive Participants" icon="volume-xmark">
+    Use the mute feature for participants with background noise.
+  </Card>
+  
+  <Card title="Record Important Sessions" icon="record-vinyl">
+    Enable recording for lectures, presentations, or important discussions.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<Accordion title="Camera/Microphone Not Working">
+  1. Check browser permissions in your address bar
+  2. Ensure no other application is using your camera
+  3. Try refreshing the page and allowing access again
+</Accordion>
+
+<Accordion title="Screen Share Not Starting">
+  1. Make sure you selected a screen/window in the browser prompt
+  2. Check if you have permission to share in your operating system
+  3. Close and reopen the sharing dialog
+</Accordion>
+
+<Accordion title="Recording Failed">
+  1. Ensure screen sharing was active before recording
+  2. Check your internet connection stability
+  3. Try stopping and starting the recording again
+</Accordion>
+
+## Next Steps
+
+- Learn about [Joining a Stream](/guide/joining-stream) from the viewer perspective
+- Explore [Group Management](/guide/managing-groups) to share streams with groups
+- Understand [Making Calls](/guide/making-calls) for one-on-one sessions

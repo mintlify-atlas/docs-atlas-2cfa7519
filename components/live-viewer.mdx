@@ -1,0 +1,566 @@
+---
+title: LiveViewer Component
+description: Viewer interface for joining and participating in live streaming sessions
+---
+
+## Overview
+
+The `LiveViewer` component provides the viewer experience for live streaming sessions. It enables users to join active streams, view the host's video/screen share, interact via chat, and optionally share their own camera and microphone.
+
+## Component Location
+
+```
+src/views/LiveViewer.vue
+```
+
+## Features
+
+### Core Viewing Features
+
+- **WebRTC Connection**: Peer-to-peer connection with host
+- **Video Display**: View host's camera or shared screen
+- **Audio Reception**: Hear host's audio
+- **Screen Sharing**: Share your screen with the host
+- **Camera Control**: Toggle your camera on/off
+- **Audio Control**: Mute/unmute your microphone
+- **Multi-participant View**: See other viewers in the session
+
+### UI Features
+
+- **Main Video Panel**: Large display of host's video
+- **Self-preview Miniature**: See yourself in bottom-right corner
+- **Other Participants Panel**: Side panel showing other viewers
+- **Chat Integration**: Real-time chat with ChatStreamComponent
+- **Duration Timer**: Session duration display
+- **Viewer Count**: Number of active participants
+- **Responsive Design**: Mobile-friendly with collapsible panels
+
+## Route Parameters
+
+<ParamField path="params.id" type="String" required>
+  The room ID for the chat system (different from stream link)
+</ParamField>
+
+<ParamField path="params.link" type="String" required>
+  The unique stream link/room identifier for joining
+</ParamField>
+
+## Data Properties
+
+### Connection State
+
+```javascript
+{
+  peer: null,                    // PeerJS instance
+  call: null,                    // Active call with host
+  roomId: String,                // Stream room ID
+  hostPeerId: String,           // Host's peer ID
+  myPeerId: String,             // Viewer's peer ID
+  isConnected: false,           // Connection status
+  isJoining: true               // Joining process status
+}
+```
+
+### Media Streams
+
+```javascript
+{
+  localStream: null,             // Viewer's camera/mic stream
+  screenStream: null,            // Viewer's screen share stream
+  localVideoEnabled: false,      // Camera state
+  localAudioEnabled: false,      // Microphone state
+  hostVideoEnabled: false,       // Host camera state
+  hostAudioEnabled: false        // Host audio state
+}
+```
+
+### Participants
+
+```javascript
+{
+  viewers: [],                   // Other viewers (excluding host)
+  mainVideoSource: 'host'       // Current main video source
+}
+```
+
+### Viewer Object Structure
+
+```javascript
+{
+  id: String,                    // Peer ID
+  call: Object,                  // WebRTC call object
+  stream: MediaStream,           // Remote stream
+  videoEnabled: Boolean,         // Video status
+  audioEnabled: Boolean,         // Audio status
+  name: String                   // Display name
+}
+```
+
+## Key Methods
+
+### joinRoom()
+
+Connects to the streaming session and establishes WebRTC connection.
+
+```javascript
+async joinRoom() {
+  // 1. Get room info from PeerJS server
+  const res = await axios.get(`http://localhost:3001/api/room/${this.roomId}`)
+  this.hostPeerId = res.data.hostPeerId
+  
+  // 2. Request to join via socket
+  socket.emit('request-join', {
+    roomId: this.roomId,
+    viewerData: {
+      ...this.userData,
+      socketId: socket.id
+    }
+  })
+  
+  // 3. Get local media (your camera/mic)
+  this.localStream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      width: { ideal: 320, max: 320 },
+      height: { ideal: 240, max: 240 },
+      frameRate: { ideal: 15, max: 30 }
+    },
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    }
+  })
+  
+  // 4. Create PeerJS instance
+  this.peer = new Peer(undefined, {
+    host: 'localhost',
+    port: 3001,
+    path: '/peerjs',
+    debug: 3
+  })
+  
+  // 5. Call host when peer is ready
+  this.peer.on('open', (id) => {
+    this.myPeerId = id
+    
+    // Call host with your stream
+    this.call = this.peer.call(this.hostPeerId, this.localStream, {
+      metadata: {
+        name: this.userData.name || this.userData.email,
+        socketId: socket.id
+      }
+    })
+    
+    // Receive host's stream
+    this.call.on('stream', (remoteStream) => {
+      this.hostVideoEnabled = remoteStream.getVideoTracks().length > 0
+      this.hostAudioEnabled = remoteStream.getAudioTracks().length > 0
+      this.updateMainVideo()
+    })
+  })
+}
+```
+
+### updateMainVideo()
+
+Updates the main video display based on selected source.
+
+```javascript
+updateMainVideo() {
+  if (this.mainVideoSource === 'host') {
+    // Show host's stream
+    if (this.call && this.call.remoteStream) {
+      this.$refs.remoteVideo.srcObject = this.call.remoteStream
+    }
+  } else {
+    // Show another viewer's stream
+    const viewer = this.viewers.find(v => v.id === this.mainVideoSource)
+    if (viewer?.stream) {
+      this.$refs.remoteVideo.srcObject = viewer.stream
+    }
+  }
+  
+  this.$refs.remoteVideo.play().catch(e => console.warn('Error play:', e))
+}
+```
+
+### setMainVideo(viewer)
+
+Changes which participant is displayed in main video.
+
+```javascript
+setMainVideo(viewer) {
+  if (viewer === 'host') {
+    this.mainVideoSource = 'host'
+    this.updateMainVideo()
+  } else {
+    this.mainVideoSource = viewer.id
+    if (viewer.stream) {
+      this.$refs.remoteVideo.srcObject = viewer.stream
+      this.$refs.remoteVideo.play()
+    }
+  }
+}
+```
+
+### toggleLocalAudio()
+
+Toggles viewer's microphone on/off.
+
+```javascript
+toggleLocalAudio() {
+  if (this.localStream) {
+    this.localAudioEnabled = !this.localAudioEnabled
+    this.localStream.getAudioTracks().forEach(track => {
+      track.enabled = this.localAudioEnabled
+    })
+  }
+}
+```
+
+### toggleLocalVideo()
+
+Toggles viewer's camera on/off.
+
+```javascript
+toggleLocalVideo() {
+  if (!this.localStream) return
+  
+  if (this.localVideoEnabled) {
+    // Turn off camera
+    this.localStream.getVideoTracks().forEach(track => {
+      track.enabled = false
+    })
+    this.localVideoEnabled = false
+    
+    // Stop screen share if active
+    if (this.screenStream) {
+      this.stopScreenShare()
+    }
+  } else {
+    // Turn on camera
+    if (this.localStream.getVideoTracks().length === 0) {
+      // Need to create new video track
+      navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 320, max: 320 },
+          height: { ideal: 240, max: 240 }
+        }
+      }).then(stream => {
+        const videoTrack = stream.getVideoTracks()[0]
+        this.localStream.addTrack(videoTrack)
+        this.localVideoEnabled = true
+        this.replaceVideoTrack(videoTrack)
+      })
+    } else {
+      // Enable existing track
+      this.localStream.getVideoTracks().forEach(track => {
+        track.enabled = true
+      })
+      this.localVideoEnabled = true
+    }
+  }
+}
+```
+
+### Screen Sharing
+
+#### startScreenShare()
+
+Starts sharing the viewer's screen with the host.
+
+```javascript
+async startScreenShare() {
+  this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: false
+  })
+  
+  const screenTrack = this.screenStream.getVideoTracks()[0]
+  
+  // Replace video track in call to host
+  await this.replaceVideoTrack(screenTrack)
+  
+  // Show screen locally in miniature
+  if (this.$refs.localVideo) {
+    this.$refs.localVideo.srcObject = this.screenStream
+  }
+  
+  // Handle when user stops sharing
+  screenTrack.onended = () => {
+    this.stopScreenShare()
+  }
+}
+```
+
+#### stopScreenShare()
+
+Stops screen sharing and returns to camera.
+
+```javascript
+async stopScreenShare() {
+  if (this.screenStream && this.localStream) {
+    // Return to camera if it was active
+    if (this.localVideoEnabled) {
+      const videoTrack = this.localStream.getVideoTracks()[0]
+      if (videoTrack) {
+        await this.replaceVideoTrack(videoTrack)
+        if (this.$refs.localVideo) {
+          this.$refs.localVideo.srcObject = this.localStream
+        }
+      }
+    }
+    
+    this.screenStream.getTracks().forEach(track => track.stop())
+    this.screenStream = null
+  }
+}
+```
+
+#### replaceVideoTrack(newTrack)
+
+Replaces the video track sent to the host.
+
+```javascript
+async replaceVideoTrack(newTrack) {
+  if (this.call && this.call.peerConnection) {
+    const senders = this.call.peerConnection.getSenders()
+    const videoSender = senders.find(s => s.track && s.track.kind === 'video')
+    
+    if (videoSender) {
+      try {
+        await videoSender.replaceTrack(newTrack)
+        console.log('Track de video reemplazado')
+      } catch (err) {
+        console.error('Error reemplazando track:', err)
+      }
+    }
+  }
+}
+```
+
+### confirmEndStream()
+
+Leaves the streaming session and cleans up resources.
+
+```javascript
+async confirmEndStream() {
+  // Notify host
+  socket.emit('leave-room', {
+    roomId: this.roomId,
+    viewerId: this.userData.id
+  })
+  
+  // Stop all tracks
+  if (this.localStream) {
+    this.localStream.getTracks().forEach(t => t.stop())
+  }
+  if (this.screenStream) {
+    this.screenStream.getTracks().forEach(t => t.stop())
+  }
+  
+  // Destroy peer connection
+  if (this.peer) {
+    this.peer.destroy()
+  }
+  
+  // Clear timer
+  if (this.intervalo) {
+    clearInterval(this.intervalo)
+  }
+  
+  router.push({ name: 'transmitions' })
+}
+```
+
+## Socket Events
+
+### Emitted
+
+<ParamField path="request-join" type="Object">
+  Requests to join the stream
+  
+  ```javascript
+  {
+    roomId: String,
+    viewerData: {
+      id: Number,
+      name: String,
+      email: String,
+      socketId: String
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="leave-room" type="Object">
+  Notifies that viewer is leaving
+  
+  ```javascript
+  {
+    roomId: String,
+    viewerId: Number
+  }
+  ```
+</ParamField>
+
+### Received
+
+<ParamField path="join-accepted" type="Object">
+  Join request was approved
+  
+  Contains:
+  ```javascript
+  {
+    startTime: Number,
+    hostId: String
+  }
+  ```
+</ParamField>
+
+<ParamField path="viewer-expelled" type="void">
+  Viewer has been removed by host
+</ParamField>
+
+<ParamField path="stream-ended" type="void">
+  Host has ended the streaming session
+</ParamField>
+
+<ParamField path="meeting-time" type="Object">
+  Time synchronization update
+  
+  Contains: `{ startTime: Number }`
+</ParamField>
+
+<ParamField path="left-room" type="Object">
+  Another viewer has left
+  
+  Contains: `{ viewerId: String }`
+</ParamField>
+
+## Computed Properties
+
+### otherViewers
+
+Filters viewers to exclude the host (already shown in main video).
+
+```javascript
+otherViewers() {
+  return this.viewers.filter(v => v.id !== this.hostPeerId)
+}
+```
+
+## Usage Example
+
+```vue
+<template>
+  <button @click="joinStream">
+    Join Live Stream
+  </button>
+</template>
+
+<script>
+export default {
+  data() {
+    return {
+      streamData: {
+        id: '12345',
+        link: 'abc123xyz'
+      }
+    }
+  },
+  methods: {
+    joinStream() {
+      this.$router.push({
+        name: 'live-viewer',
+        params: {
+          id: this.streamData.id,      // For chat
+          link: this.streamData.link    // For WebRTC room
+        }
+      })
+    }
+  }
+}
+</script>
+```
+
+## Lifecycle Hooks
+
+### mounted()
+
+```javascript
+async mounted() {
+  this.setupSocketEvents()
+  await this.joinRoom()
+  this.isStarting = false
+  this.isMobile()
+}
+```
+
+### beforeDestroy()
+
+```javascript
+beforeDestroy() {
+  // Stop all media tracks
+  if (this.localStream) {
+    this.localStream.getTracks().forEach(t => t.stop())
+  }
+  if (this.screenStream) {
+    this.screenStream.getTracks().forEach(t => t.stop())
+  }
+  
+  // Destroy peer
+  if (this.peer) {
+    this.peer.destroy()
+  }
+  
+  // Clear timer
+  if (this.intervalo) {
+    clearInterval(this.intervalo)
+  }
+  
+  // Remove socket listeners
+  socket.off('viewer-expelled')
+  socket.off('join-accepted')
+  socket.off('meeting-time')
+  socket.off('stream-ended')
+  socket.off('left-room')
+}
+```
+
+## Dependencies
+
+- **PeerJS**: WebRTC peer connections
+- **axios**: HTTP requests
+- **socket.js**: WebSocket communication
+- **ChatStreamComponent**: Integrated chat
+- **@heroicons/vue**: UI icons
+- **ToastNotification**: User notifications
+
+## Responsive Design
+
+The component includes mobile-specific features:
+
+```javascript
+isMobile() {
+  this.screenMobil = window.innerWidth < 768
+}
+```
+
+Mobile users get:
+- Collapsible chat panel
+- Simplified controls
+- Touch-friendly buttons
+- Full-screen video by default
+
+<Info>
+  The LiveViewer component requires approval from the host before joining. Viewers are placed in a waiting room until the host admits them.
+</Info>
+
+<Note>
+  Viewers can share their camera/microphone with the host, enabling two-way communication. The host sees all viewer streams in their interface.
+</Note>
+
+<Warning>
+  Ensure proper permissions are granted for camera and microphone access. The component handles permission errors gracefully but users must allow access for full functionality.
+</Warning>

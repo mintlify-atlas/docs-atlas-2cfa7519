@@ -1,0 +1,438 @@
+---
+title: Call System Components
+description: WebRTC-based audio/video calling system with CallComponente and CallingComponent
+---
+
+## Overview
+
+The EduStream call system consists of two main components that work together to provide WebRTC-based peer-to-peer audio calling functionality with real-time communication.
+
+## Components
+
+### CallComponente
+
+The main call interface component that handles active calls and WebRTC connections.
+
+**Location:** `src/components/calls/CallComponente.vue`
+
+### CallingComponent
+
+The outgoing call screen displayed while waiting for the other party to answer.
+
+**Location:** `src/components/calls/CallingComponent.vue`
+
+---
+
+## CallComponente
+
+### Overview
+
+Manages active audio calls with WebRTC peer connections, providing controls for audio toggling, call management, and minimization.
+
+### Features
+
+- WebRTC peer-to-peer connections
+- Audio-only calling (video tracks hidden)
+- Call duration tracking
+- Audio muting/unmuting
+- Call minimization (continue call while navigating)
+- Connection state management
+- ICE candidate exchange
+- Toast notifications
+
+### Props
+
+This component uses Composition API with `<script setup>` and gets data from route parameters:
+
+<ParamField path="route.params.id" type="String" required>
+  The ID of the user being called
+</ParamField>
+
+<ParamField path="route.query.name" type="String">
+  Display name of the contact (defaults to "Usuario")
+</ParamField>
+
+<ParamField path="route.query.photo" type="String">
+  Photo URL of the contact (uses placeholder if not provided)
+</ParamField>
+
+<ParamField path="route.query.incoming" type="String">
+  Set to "true" if this is an incoming call being answered
+</ParamField>
+
+### Reactive State
+
+```javascript
+const callState = ref('calling') // 'calling' or 'connected'
+const isAudioEnabled = ref(true)
+const callDuration = ref(0)
+const localStream = ref(null)
+const remoteStream = ref(null)
+const peerConnection = ref(null)
+```
+
+### Methods
+
+#### setupLocalMedia()
+
+Initializes local media stream (audio only).
+
+```javascript
+async function setupLocalMedia() {
+  try {
+    localStream.value = await navigator.mediaDevices.getUserMedia({ 
+      video: false, 
+      audio: true 
+    })
+    if (localVideo.value) {
+      localVideo.value.srcObject = localStream.value
+    }
+    callStore.setStreams(localStream.value, null)
+  } catch (error) {
+    console.error('Error accessing media', error)
+    addToast('No se pudo acceder al micrófono', 'error')
+  }
+}
+```
+
+#### createPeerConnection()
+
+Creates and configures the RTCPeerConnection.
+
+```javascript
+function createPeerConnection() {
+  peerConnection.value = new RTCPeerConnection(servers)
+  
+  // Add local tracks
+  localStream.value.getTracks().forEach((track) => {
+    peerConnection.value.addTrack(track, localStream.value)
+  })
+  
+  // Handle remote tracks
+  peerConnection.value.ontrack = (event) => {
+    remoteStream.value = event.streams[0]
+    if (remoteVideo.value) {
+      remoteVideo.value.srcObject = remoteStream.value
+    }
+    callStore.setStreams(localStream.value, remoteStream.value)
+  }
+  
+  // Handle ICE candidates
+  peerConnection.value.onicecandidate = (event) => {
+    if (event.candidate) {
+      socket.emit('ice-candidate', {
+        candidate: event.candidate,
+        to: targetId
+      })
+    }
+  }
+  
+  callStore.setPeerConnection(peerConnection.value)
+}
+```
+
+#### startCall()
+
+Initiates an outgoing call.
+
+```javascript
+async function startCall() {
+  createPeerConnection()
+  const offer = await peerConnection.value.createOffer()
+  await peerConnection.value.setLocalDescription(offer)
+  
+  const userData = JSON.parse(localStorage.getItem('user'))
+  
+  socket.emit('call-user', {
+    userToCall: targetId,
+    signalData: offer,
+    from: userData.id,
+    name: userData.name,
+    avatar: userData.photo
+  })
+}
+```
+
+#### toggleAudio()
+
+Toggles microphone on/off.
+
+```javascript
+function toggleAudio() {
+  isAudioEnabled.value = !isAudioEnabled.value
+  localStream.value.getAudioTracks().forEach((track) => {
+    track.enabled = isAudioEnabled.value
+  })
+}
+```
+
+#### endCall()
+
+Ends the current call and cleans up resources.
+
+```javascript
+function endCall(emitEvent = true) {
+  if (emitEvent && socket) {
+    socket.emit('end-call', { to: targetId })
+  }
+  callStore.endCall()
+  router.go(-1)
+}
+```
+
+#### minimizeCall()
+
+Minimizes the call window while keeping the connection active.
+
+```javascript
+function minimizeCall() {
+  callStore.minimizeCall()
+  router.push({ name: 'chats' })
+}
+```
+
+### Socket Events
+
+#### Emitted Events
+
+<ParamField path="join-video-room" type="String">
+  Joins the signaling room for the user
+  
+  Payload: User ID
+</ParamField>
+
+<ParamField path="call-user" type="Object">
+  Initiates a call to another user
+  
+  Payload:
+  ```javascript
+  {
+    userToCall: String,
+    signalData: RTCSessionDescription,
+    from: String,
+    name: String,
+    avatar: String
+  }
+  ```
+</ParamField>
+
+<ParamField path="make-answer" type="Object">
+  Sends call answer signal
+  
+  Payload:
+  ```javascript
+  {
+    signal: RTCSessionDescription,
+    to: String
+  }
+  ```
+</ParamField>
+
+<ParamField path="ice-candidate" type="Object">
+  Exchanges ICE candidates for connection establishment
+  
+  Payload:
+  ```javascript
+  {
+    candidate: RTCIceCandidate,
+    to: String
+  }
+  ```
+</ParamField>
+
+<ParamField path="end-call" type="Object">
+  Notifies the other party that the call has ended
+  
+  Payload:
+  ```javascript
+  {
+    to: String
+  }
+  ```
+</ParamField>
+
+#### Received Events
+
+<ParamField path="call-answered" type="Object">
+  Received when the called party answers
+  
+  Contains: `{ signal: RTCSessionDescription }`
+</ParamField>
+
+<ParamField path="ice-candidate" type="Object">
+  Received ICE candidate from peer
+  
+  Contains: `{ candidate: RTCIceCandidate }`
+</ParamField>
+
+<ParamField path="call-rejected" type="void">
+  Received when call is rejected
+</ParamField>
+
+<ParamField path="call-ended" type="void">
+  Received when the other party ends the call
+</ParamField>
+
+### WebRTC Configuration
+
+```javascript
+const servers = {
+  iceServers: [
+    {
+      urls: [
+        'stun:stun1.l.google.com:19302', 
+        'stun:stun2.l.google.com:19302'
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## CallingComponent
+
+### Overview
+
+Displays the outgoing call interface with animated "calling" state and hang-up option.
+
+### Props
+
+<ParamField path="contactName" type="String" required>
+  Name of the contact being called
+</ParamField>
+
+<ParamField path="contactPhoto" type="String">
+  Photo URL of the contact (uses UI Avatars as fallback)
+</ParamField>
+
+### Events Emitted
+
+<ParamField path="hangup" type="void">
+  Emitted when user clicks the hang-up button
+</ParamField>
+
+### Usage
+
+```vue
+<CallingComponent
+  v-if="callState === 'calling'"
+  :contactName="targetName"
+  :contactPhoto="targetPhoto"
+  @hangup="endCall"
+/>
+```
+
+### Features
+
+- Animated contact avatar with glow effect
+- "Calling..." text with animated dots
+- Hang-up button
+- Smooth fade-in animations
+- Responsive design
+
+---
+
+## Complete Usage Example
+
+<CodeGroup>
+```vue Initiating a Call
+<template>
+  <button @click="startCall">
+    Call {{ contact.name }}
+  </button>
+</template>
+
+<script>
+export default {
+  data() {
+    return {
+      contact: {
+        id: '123',
+        name: 'John Doe',
+        photo: 'https://example.com/photo.jpg'
+      }
+    }
+  },
+  methods: {
+    startCall() {
+      this.$router.push({
+        name: 'call',
+        params: { id: this.contact.id },
+        query: {
+          name: this.contact.name,
+          photo: this.contact.photo,
+          incoming: 'false'
+        }
+      })
+    }
+  }
+}
+</script>
+```
+
+```vue Answering a Call
+<script>
+export default {
+  mounted() {
+    socket.on('incoming-call', (data) => {
+      // Show incoming call notification
+      this.showIncomingCall(data)
+    })
+  },
+  methods: {
+    answerCall(callData) {
+      this.$router.push({
+        name: 'call',
+        params: { id: callData.from },
+        query: {
+          name: callData.name,
+          photo: callData.avatar,
+          incoming: 'true',
+          signal: btoa(JSON.stringify(callData.signalData))
+        }
+      })
+    }
+  }
+}
+</script>
+```
+</CodeGroup>
+
+## Call Store Integration
+
+The call system integrates with Pinia store (`callStore`) for state management:
+
+```javascript
+import { callStore } from '@/stores/callStore.js'
+
+// Start call
+callStore.startCall(targetId, targetName, targetPhoto)
+
+// Update streams
+callStore.setStreams(localStream, remoteStream)
+
+// Update duration
+callStore.updateCallDuration(duration)
+
+// Minimize
+callStore.minimizeCall()
+
+// End call
+callStore.endCall()
+```
+
+## Dependencies
+
+- **socket.js**: WebSocket service for signaling
+- **@heroicons/vue**: UI icons
+- **callStore**: Pinia store for call state management
+- **ToastNotification**: Notification component
+
+<Info>
+  The call system uses WebRTC for peer-to-peer connections, with Socket.IO handling the signaling process. Ensure your backend has proper socket event handlers for call management.
+</Info>
+
+<Note>
+  Currently, the system is configured for audio-only calls. Video tracks are hidden but the infrastructure supports video if needed in future updates.
+</Note>

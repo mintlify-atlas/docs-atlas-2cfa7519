@@ -1,0 +1,532 @@
+---
+title: Video Calls
+description: Peer-to-peer audio and video calling with WebRTC for one-on-one communication
+---
+
+## Overview
+
+EduStream's video call system enables direct peer-to-peer communication between users using WebRTC technology. The system supports audio-only and video calls with real-time connection management.
+
+## Call Types
+
+<CardGroup cols={2}>
+  <Card title="Audio Calls" icon="phone">
+    Voice-only communication with minimal bandwidth usage
+  </Card>
+  
+  <Card title="Video Calls" icon="video">
+    Full audio and video communication (configurable)
+  </Card>
+</CardGroup>
+
+<Note>
+Currently, the system is configured for audio-only calls by default, but the infrastructure supports video calls.
+</Note>
+
+## Initiating a Call
+
+### Outgoing Calls
+
+When a user initiates a call, the system creates a WebRTC connection:
+
+```javascript
+// From CallComponente.vue:324
+async function startCall() {
+  createPeerConnection()
+  const offer = await peerConnection.value.createOffer()
+  await peerConnection.value.setLocalDescription(offer)
+  
+  const userData = JSON.parse(localStorage.getItem('user'))
+  
+  socket.emit('call-user', {
+    userToCall: targetId,
+    signalData: offer,
+    from: userData.id,
+    name: userData.name,
+    avatar: userData.photo
+  })
+}
+```
+
+<Steps>
+  <Step title="Setup Local Media">
+    The system requests access to the user's microphone:
+    
+    ```javascript
+    // From CallComponente.vue:280
+    async function setupLocalMedia() {
+      try {
+        localStream.value = await navigator.mediaDevices.getUserMedia({ 
+          video: false, 
+          audio: true 
+        })
+        if (localVideo.value) localVideo.value.srcObject = localStream.value
+        
+        // Sync with call store
+        callStore.setStreams(localStream.value, null)
+      } catch (error) {
+        console.error('Error accessing media', error)
+        addToast('No se pudo acceder a la cámara/micrófono', 'error')
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Create Peer Connection">
+    WebRTC peer connection is established with STUN servers:
+    
+    ```javascript
+    // From CallComponente.vue:293
+    function createPeerConnection() {
+      peerConnection.value = new RTCPeerConnection(servers)
+      
+      // Add local tracks
+      localStream.value.getTracks().forEach((track) => {
+        peerConnection.value.addTrack(track, localStream.value)
+      })
+      
+      // Handle remote tracks
+      peerConnection.value.ontrack = (event) => {
+        remoteStream.value = event.streams[0]
+        if (remoteVideo.value) remoteVideo.value.srcObject = remoteStream.value
+        callStore.setStreams(localStream.value, remoteStream.value)
+      }
+      
+      // Handle ICE candidates
+      peerConnection.value.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', {
+            candidate: event.candidate,
+            to: targetId
+          })
+        }
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Wait for Answer">
+    The system shows a "calling" UI while waiting for the recipient to answer.
+  </Step>
+</Steps>
+
+## Receiving a Call
+
+### Incoming Call UI
+
+When a call is received, an overlay appears:
+
+```vue
+<!-- From ReceivingCallComponent.vue:1-55 -->
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+  <div class="bg-gray-800 rounded-2xl shadow-2xl p-8">
+    <div class="w-24 h-24 mx-auto rounded-full border-4 border-blue-500">
+      <img :src="callerAvatar" alt="Caller" />
+    </div>
+    
+    <h2>{{ callerName || 'Desconocido' }}</h2>
+    <p>Llamada entrante...</p>
+    
+    <div class="flex justify-center gap-6">
+      <button @click="reject">
+        <PhoneXMarkIcon />
+        Rechazar
+      </button>
+      
+      <button @click="accept">
+        <PhoneIcon />
+        Contestar
+      </button>
+    </div>
+  </div>
+  
+  <!-- Ringtone audio element -->
+  <audio ref="ringtoneAudio" loop>
+    <source src="ringtone.mp3" type="audio/mpeg">
+  </audio>
+</div>
+```
+
+<Accordion title="Ringtone Management">
+  The receiving component automatically plays a ringtone when a call arrives:
+  
+  ```javascript
+  // From ReceivingCallComponent.vue:74
+  watch(() => props.visible, (newVal) => {
+    if (newVal) {
+      playRingtone()
+    } else {
+      stopRingtone()
+    }
+  })
+  
+  function playRingtone() {
+    if (ringtoneAudio.value) {
+      ringtoneAudio.value.play().catch(err => {
+        console.error('Error playing ringtone:', err)
+      })
+    }
+  }
+  ```
+</Accordion>
+
+### Answering a Call
+
+When the recipient accepts:
+
+```javascript
+// From CallComponente.vue:340
+async function handleReceiveCall(offerSignal) {
+  createPeerConnection()
+  await peerConnection.value.setRemoteDescription(
+    new RTCSessionDescription(offerSignal)
+  )
+  const answer = await peerConnection.value.createAnswer()
+  await peerConnection.value.setLocalDescription(answer)
+  
+  socket.emit('make-answer', {
+    signal: answer,
+    to: targetId
+  })
+}
+```
+
+## Active Call Interface
+
+### Call Screen Layout
+
+During an active call, users see:
+
+```vue
+<!-- From CallComponente.vue:12-123 -->
+<div class="flex flex-col h-full relative z-10">
+  <!-- Background blur effect -->
+  <div class="absolute inset-0 z-0 overflow-hidden">
+    <img :src="targetPhoto" class="blur-2xl opacity-40" />
+  </div>
+  
+  <!-- Top Section: Status & Timer -->
+  <div class="relative z-20 pt-16 flex flex-col items-center">
+    <div class="bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full">
+      <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+      <span>En llamada</span>
+    </div>
+    <h2>{{ targetName }}</h2>
+    <div>{{ formatTime(callDuration) }}</div>
+  </div>
+  
+  <!-- Middle Section: Avatar -->
+  <div class="flex-grow flex flex-col items-center justify-center">
+    <div class="w-56 h-56 rounded-full">
+      <img :src="targetPhoto" alt="Contact" />
+    </div>
+  </div>
+  
+  <!-- Bottom Section: Controls -->
+  <div class="relative z-20 pb-16 flex flex-col items-center">
+    <div class="flex items-center gap-6">
+      <!-- Mute button -->
+      <button @click="toggleAudio">
+        <MicrophoneIcon v-if="isAudioEnabled" />
+        <MicrophoneIconSlash v-else />
+      </button>
+      
+      <!-- End call button -->
+      <button @click="endCall">
+        <PhoneXMarkIcon />
+      </button>
+    </div>
+  </div>
+</div>
+```
+
+### Call Controls
+
+<CardGroup cols={2}>
+  <Card title="Mute/Unmute" icon="microphone">
+    Toggle your microphone on or off during the call
+  </Card>
+  
+  <Card title="End Call" icon="phone-slash">
+    Terminate the call and return to the previous screen
+  </Card>
+  
+  <Card title="Minimize" icon="chevron-down">
+    Minimize the call while continuing the conversation
+  </Card>
+</CardGroup>
+
+### Audio Controls
+
+```javascript
+// From CallComponente.vue:354
+function toggleAudio() {
+  isAudioEnabled.value = !isAudioEnabled.value
+  localStream.value.getAudioTracks().forEach(
+    (track) => (track.enabled = isAudioEnabled.value)
+  )
+}
+```
+
+## Call Minimization
+
+Users can minimize calls to navigate the app while staying connected:
+
+```javascript
+// From CallComponente.vue:385
+function minimizeCall() {
+  callStore.minimizeCall()
+  router.push({ name: 'chats' }) // Navigate to chats or previous page
+}
+```
+
+<Info>
+When a call is minimized, a floating mini-component appears that allows quick access back to the call interface.
+</Info>
+
+### Call Store
+
+The call state is managed globally:
+
+```javascript
+// Call store manages:
+- isInCall: boolean
+- isMinimized: boolean
+- callData: {
+  localStream,
+  remoteStream,
+  peerConnection,
+  callDuration,
+  isAudioEnabled,
+  targetId,
+  targetName,
+  targetPhoto
+}
+```
+
+## Call Timer
+
+The system tracks call duration in real-time:
+
+```javascript
+// From CallComponente.vue:378
+function startTimer() {
+  timerInterval.value = setInterval(() => {
+    callDuration.value++
+    callStore.updateCallDuration(callDuration.value)
+  }, 1000)
+}
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+}
+```
+
+## Ending a Call
+
+Calls can be terminated by either party:
+
+```javascript
+// From CallComponente.vue:364
+function endCall(emitEvent = true) {
+  if (emitEvent && socket) {
+    socket.emit('end-call', { to: targetId })
+  }
+  callStore.endCall()
+  router.go(-1) // Go back
+}
+```
+
+<Steps>
+  <Step title="Emit End Event">
+    Notify the other party that the call is ending
+  </Step>
+  
+  <Step title="Stop Media Tracks">
+    Close all audio/video streams
+  </Step>
+  
+  <Step title="Close Peer Connection">
+    Terminate the WebRTC connection
+  </Step>
+  
+  <Step title="Clean Up State">
+    Clear call store and return to previous view
+  </Step>
+</Steps>
+
+## Socket Events
+
+### Signaling Events
+
+| Event | Direction | Purpose |
+|-------|-----------|----------|
+| `call-user` | Caller → Server | Initiate call with offer |
+| `incoming-call` | Server → Callee | Notify of incoming call |
+| `make-answer` | Callee → Server | Send answer signal |
+| `call-answered` | Server → Caller | Deliver answer signal |
+| `ice-candidate` | Both → Server | Exchange ICE candidates |
+| `call-rejected` | Callee → Server | Reject incoming call |
+| `end-call` | Either → Server | Terminate call |
+| `call-ended` | Server → Other | Notify of call termination |
+
+### Socket Listeners
+
+```javascript
+// From CallComponente.vue:232-258
+socket.on('call-answered', async (data) => {
+  if (callState.value === 'calling') {
+    callState.value = 'connected'
+    await peerConnection.value.setRemoteDescription(
+      new RTCSessionDescription(data.signal)
+    )
+    startTimer()
+  }
+})
+
+socket.on('ice-candidate', async (data) => {
+  if (peerConnection.value) {
+    await peerConnection.value.addIceCandidate(
+      new RTCIceCandidate(data.candidate)
+    )
+  }
+})
+
+socket.on('call-rejected', () => {
+  router.push({ name: 'chats' })
+})
+
+socket.on('call-ended', () => {
+  endCall(false) // Don't emit hangup again
+})
+```
+
+## WebRTC Configuration
+
+### STUN Servers
+
+The system uses Google's public STUN servers for NAT traversal:
+
+```javascript
+// From CallComponente.vue:168
+const servers = {
+  iceServers: [
+    {
+      urls: [
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302'
+      ]
+    }
+  ]
+}
+```
+
+<Warning>
+For production deployments behind restrictive firewalls, consider adding TURN servers to ensure connectivity.
+</Warning>
+
+### Media Constraints
+
+```javascript
+// Audio-only call configuration
+const constraints = {
+  video: false,
+  audio: true
+}
+```
+
+## Call States
+
+<Tabs>
+  <Tab title="Calling">
+    **Outgoing Call State**
+    
+    - Shows "calling" animation
+    - Displays contact information
+    - Plays outgoing ringtone (optional)
+    - Allows cancellation
+  </Tab>
+  
+  <Tab title="Receiving">
+    **Incoming Call State**
+    
+    - Shows caller information
+    - Plays ringtone
+    - Provides accept/reject buttons
+    - Can be dismissed
+  </Tab>
+  
+  <Tab title="Connected">
+    **Active Call State**
+    
+    - Shows call timer
+    - Displays audio controls
+    - Shows connection status
+    - Allows minimization
+  </Tab>
+</Tabs>
+
+## Error Handling
+
+### Media Access Errors
+
+```javascript
+// Handle various permission and device errors
+try {
+  localStream.value = await navigator.mediaDevices.getUserMedia({
+    video: false,
+    audio: true
+  })
+} catch (error) {
+  if (error.name === 'NotAllowedError') {
+    addToast('Permiso denegado para acceder al micrófono', 'error')
+  } else if (error.name === 'NotFoundError') {
+    addToast('No se encontró micrófono', 'error')
+  } else if (error.name === 'NotReadableError') {
+    addToast('El micrófono está siendo usado por otra aplicación', 'error')
+  }
+}
+```
+
+### Connection Errors
+
+<CardGroup cols={2}>
+  <Card title="ICE Connection Failure" icon="network-wired">
+    Automatically retry ICE candidate gathering
+  </Card>
+  
+  <Card title="Signaling Timeout" icon="clock">
+    Handle cases where the other party doesn't respond
+  </Card>
+  
+  <Card title="Media Track Error" icon="exclamation-triangle">
+    Gracefully handle track ending or errors
+  </Card>
+  
+  <Card title="Socket Disconnection" icon="plug">
+    Detect and handle WebSocket disconnections
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Tip>
+**For Developers**: Always test call functionality on different networks and devices to ensure compatibility.
+</Tip>
+
+<Tip>
+**For Users**: Use headphones to prevent echo and ensure clear audio quality.
+</Tip>
+
+## Future Enhancements
+
+Potential improvements to the call system:
+
+- Video call support (infrastructure already in place)
+- Group audio calls
+- Call recording
+- Screen sharing during calls
+- Noise cancellation controls
+- Network quality indicators

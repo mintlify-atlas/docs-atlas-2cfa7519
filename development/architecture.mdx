@@ -1,0 +1,195 @@
+---
+title: 'System Architecture'
+description: 'Overview of EduStream technical architecture, tech stack, and project structure'
+---
+
+## Overview
+
+EduStream is a modern video streaming and communication platform built with Vue 3 and a carefully selected set of modern web technologies. The application supports real-time video calls, live streaming, chat functionality, and comprehensive user management.
+
+## Tech Stack
+
+### Core Framework
+
+<CardGroup cols={2}>
+  <Card title="Vue 3" icon="vuejs">
+    Progressive JavaScript framework with Composition API
+  </Card>
+  <Card title="TypeScript" icon="code">
+    Type-safe development with TypeScript 5.8
+  </Card>
+  <Card title="Vite" icon="bolt">
+    Fast build tool and development server
+  </Card>
+  <Card title="Pinia" icon="database">
+    State management for Vue 3 applications
+  </Card>
+</CardGroup>
+
+### Key Dependencies
+
+```json package.json
+{
+  "dependencies": {
+    "vue": "^3.5.18",
+    "vue-router": "^4.5.1",
+    "pinia": "^3.0.3",
+    "axios": "^1.13.2",
+    "livekit-client": "^2.17.1",
+    "peerjs": "^1.5.5",
+    "socket.io-client": "^4.8.1",
+    "hls.js": "^1.6.15",
+    "chart.js": "^4.5.1"
+  }
+}
+```
+
+### Real-time Communication
+
+- **LiveKit Client**: Professional-grade WebRTC for video conferencing
+- **PeerJS**: Peer-to-peer video and audio calls
+- **Socket.io**: Real-time bidirectional communication
+- **HLS.js**: HTTP Live Streaming playback
+
+### UI & Styling
+
+- **Tailwind CSS**: Utility-first CSS framework
+- **Heroicons**: Beautiful hand-crafted SVG icons
+- **Chart.js**: Data visualization for analytics
+- **Vue ChartJS**: Vue wrapper for Chart.js
+
+## Project Structure
+
+The source code is organized following Vue 3 best practices:
+
+```bash
+src/
+├── assets/          # Static assets (images, styles)
+├── components/      # Reusable Vue components
+│   ├── Settings/    # Settings-related components
+│   ├── calls/       # Call interface components
+│   └── dialogs/     # Modal dialogs
+├── layouts/         # Layout components
+├── router/          # Vue Router configuration
+├── services/        # API and external services
+├── stores/          # Pinia state management
+└── views/           # Page-level components
+```
+
+<Note>
+  The project uses the `@` alias to reference the `src/` directory, configured in `vite.config.ts`.
+</Note>
+
+## Application Bootstrap
+
+The application initializes in `src/main.ts`:
+
+```typescript src/main.ts
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import router from './router'
+import './index.css'
+import App from './App.vue'
+
+const app = createApp(App)
+
+app.use(createPinia())
+app.use(router)
+app.mount('#app')
+```
+
+### Initialization Order
+
+1. **Create Vue App**: Initialize the root Vue instance
+2. **Install Pinia**: Set up state management
+3. **Install Router**: Configure navigation
+4. **Mount App**: Attach to DOM element `#app`
+
+<Info>
+  Pinia is installed before the router to ensure stores are available for route guards and components.
+</Info>
+
+## Build Configuration
+
+EduStream uses Vite for lightning-fast development and optimized production builds:
+
+```typescript vite.config.ts
+import { fileURLToPath, URL } from 'node:url'
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+
+export default defineConfig({
+  plugins: [
+    vue(),
+  ],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url))
+    },
+  },
+})
+```
+
+### Development Scripts
+
+<Tabs>
+  <Tab title="Development">
+    ```bash
+    npm run dev
+    ```
+    Starts Vite development server with hot module replacement
+  </Tab>
+  <Tab title="Build">
+    ```bash
+    npm run build
+    ```
+    Type-checks and builds for production
+  </Tab>
+  <Tab title="Preview">
+    ```bash
+    npm run preview
+    ```
+    Preview production build locally
+  </Tab>
+</Tabs>
+
+## Architecture Patterns
+
+### Component Organization
+
+- **Views**: Page-level components mapped to routes
+- **Components**: Reusable UI components
+- **Layouts**: Wrapper components for consistent page structure
+
+### Data Flow
+
+1. User interactions trigger component methods
+2. Components dispatch actions to Pinia stores
+3. Stores update reactive state
+4. Components re-render with updated data
+
+### Communication Layer
+
+The application uses multiple communication protocols:
+
+- **HTTP/REST**: API calls via Axios
+- **WebRTC**: Peer-to-peer video/audio via PeerJS and LiveKit
+- **WebSocket**: Real-time messaging via Socket.io
+- **HLS**: Video streaming playback
+
+## Node.js Requirements
+
+<Warning>
+  EduStream requires Node.js version `^20.19.0` or `>=22.12.0` as specified in package.json.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Routing" href="/development/routing">
+    Learn about Vue Router configuration
+  </Card>
+  <Card title="State Management" href="/development/state-management">
+    Explore Pinia stores and state patterns
+  </Card>
+</CardGroup>

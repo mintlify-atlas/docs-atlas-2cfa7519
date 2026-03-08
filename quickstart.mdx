@@ -1,80 +1,251 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get started with EduStream and create your first live stream or video call"
 ---
 
-## Get started in three steps
+## Welcome to EduStream
 
-Get your documentation site running locally and make your first customization.
+This quickstart guide will walk you through setting up EduStream and experiencing its core features: live streaming, video calls, and real-time chat.
 
-### Step 1: Set up your local environment
+<Info>
+Before starting, ensure you have completed the [installation](/installation) and have the application running locally.
+</Info>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+## What You'll Learn
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+In this guide, you'll:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Live Streaming" icon="video" href="#host-your-first-stream">
+    Host a live educational stream with participant management
+  </Card>
+  <Card title="Video Calls" icon="phone" href="#make-a-video-call">
+    Make real-time video and audio calls with peers
+  </Card>
+  <Card title="Real-time Chat" icon="messages" href="#use-chat-features">
+    Send messages in live streams and groups
+  </Card>
+  <Card title="Dashboard" icon="chart-bar" href="#explore-the-dashboard">
+    View analytics and manage your content
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Get Started
+
+<Steps>
+  <Step title="Access the Application">
+    Open your browser and navigate to:
+    
+    ```bash
+    http://localhost:5173
+    ```
+    
+    You should see the EduStream landing page with options to sign in or create an account.
+  </Step>
+
+  <Step title="Create an Account or Sign In">
+    If you're a first-time user, create an account with your email and password. If you already have an account, sign in.
+    
+    The authentication system uses JWT tokens for secure session management:
+    
+    ```javascript src/views/Login.vue
+    // Login authentication flow
+    const login = async () => {
+      try {
+        const response = await axios.post('/login', {
+          email: user.email,
+          password: user.password
+        });
+        
+        if (response.data.success) {
+          localStorage.setItem('token', response.data.token);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+          router.push('/dashboard/statistics');
+        }
+      } catch (error) {
+        console.error('Login failed:', error);
+      }
+    };
+    ```
+    
+    <Note>
+    Your authentication token is stored securely in localStorage and automatically included in all API requests.
+    </Note>
+  </Step>
+
+  <Step title="Explore the Dashboard">
+    After logging in, you'll be directed to the main dashboard at `/dashboard/statistics`.
+    
+    The dashboard displays:
+    - **Active Users**: Currently online users
+    - **Live Streams**: Ongoing broadcasts
+    - **Messages**: Total messages sent
+    - **Groups**: Number of active groups
+    - **Activity Chart**: Hourly usage statistics
+    
+    From here, you can access all major features through the sidebar navigation.
+  </Step>
+
+  <Step title="Start a Real-time Chat">
+    Navigate to **Chats** from the sidebar to access the messaging interface.
+    
+    The chat system uses Socket.io for real-time communication:
+    
+    ```javascript src/services/socket.js
+    import { io } from 'socket.io-client'
+
+    const socket = io('http://localhost:3001', {
+      autoConnect: true,
+    })
+
+    export default socket
+    ```
+    
+    Select a user or group to start chatting. Messages are delivered instantly to all connected participants.
+  </Step>
+
+  <Step title="Make a Video Call">
+    To initiate a video call:
+    
+    1. Navigate to the **Users** section
+    2. Select a user you want to call
+    3. Click the call button to start
+    
+    EduStream uses PeerJS and WebRTC for peer-to-peer video/audio connections:
+    
+    ```javascript src/services/peerService.js
+    import { Peer } from "peerjs";
+
+    export const createPeer = (id = null) => {
+      return new Peer(id, {
+        host: 'localhost',
+        port: 3001,
+        path: '/',
+        secure: false
+      });
+    };
+    ```
+    
+    The call interface provides controls for:
+    - Muting/unmuting audio
+    - Ending the call
+    - Minimizing the call window for multitasking
+    
+    <Tip>
+    You can minimize an active call to continue working while staying connected. The mini call component remains visible in the corner.
+    </Tip>
+  </Step>
+
+  <Step title="Host Your First Stream">
+    To start a live broadcast:
+    
+    1. Navigate to **Transmissions** from the sidebar
+    2. Click **Create New Stream** or **Start Broadcast**
+    3. Configure your stream settings (title, description)
+    4. Click **Go Live**
+    
+    As a host, you can:
+    - **Manage Participants**: Admit or reject viewers from the waiting room
+    - **Control Media**: Toggle camera, microphone, and screen sharing
+    - **Record**: Save your stream using the integrated recording feature
+    - **Monitor**: View all active participants and their connection status
+    
+    ```javascript src/router/index.ts
+    {
+      path: '/liveHost/:id',
+      name: 'live',
+      component: Live,
+    }
+    ```
+    
+    Your stream is accessible at a unique URL that viewers can use to join.
+  </Step>
+
+  <Step title="Join a Stream as a Viewer">
+    To watch a live stream:
+    
+    1. Find available streams on the **Dashboard** or receive an invitation link
+    2. Click to join the stream
+    3. Wait for the host to admit you from the waiting room
+    4. Once admitted, you can watch, interact in chat, and optionally share your camera/audio
+    
+    ```javascript src/router/index.ts
+    {
+      path: '/liveViewer/:link/:id',
+      name: 'live-viewer',
+      component: LiveViewer,
+    }
+    ```
+    
+    <Info>
+    Viewers can request to enable their camera/microphone to participate in the stream. The host must approve these requests.
+    </Info>
+  </Step>
+</Steps>
+
+## Next Steps
+
+Now that you've experienced the core features, explore these advanced topics:
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users" href="/guide/dashboard">
+    Learn about user roles, permissions, and management
+  </Card>
+  
+  <Card title="Streaming Guide" icon="video" href="/guide/hosting-stream">
+    Advanced streaming features and best practices
+  </Card>
+  
+  <Card title="Services Guide" icon="code" href="/services/socket-service">
+    Learn about Socket.io and PeerJS integration
+  </Card>
+  
+  <Card title="Components" icon="cube" href="/components/chat-stream">
+    Explore the component architecture
+  </Card>
+</CardGroup>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="WebRTC Connection Failed">
+    If video calls or streaming fail to connect:
+    
+    - Ensure the PeerJS server is running on port 3001
+    - Check that your browser allows camera/microphone access
+    - Verify firewall settings aren't blocking WebRTC connections
+    - Try using a different browser (Chrome and Firefox work best)
+  </Accordion>
+
+  <Accordion title="Chat Messages Not Appearing">
+    If real-time chat isn't working:
+    
+    - Verify the Socket.io server is running on port 3001
+    - Check the browser console for connection errors
+    - Ensure your authentication token is valid
+    - Refresh the page to re-establish the Socket.io connection
+  </Accordion>
+
+  <Accordion title="Stream Won't Start">
+    If you can't start a stream:
+    
+    - Grant browser permissions for camera and microphone
+    - Check that no other application is using your camera
+    - Verify the backend services are running
+    - Clear browser cache and restart the application
+  </Accordion>
+
+  <Accordion title="User Not Admitted to Stream">
+    If viewers can't join your stream:
+    
+    - As a host, check the waiting room panel for pending users
+    - Click the green checkmark to admit users
+    - Ensure the stream URL is correct and the stream is active
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+<Card title="Need Assistance?" icon="question">
+  Check out the [User Guide](/guide/authentication) for detailed instructions on all features, or explore the [Development documentation](/development/architecture) if you're looking to customize or extend EduStream.
+</Card>

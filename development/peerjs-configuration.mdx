@@ -1,0 +1,700 @@
+---
+title: "PeerJS Configuration"
+description: "Configure and use PeerJS for simplified WebRTC peer-to-peer connections in EduStream"
+---
+
+## Overview
+
+PeerJS simplifies WebRTC peer-to-peer data, video, and audio calls. It provides a complete, configurable, and easy-to-use abstraction over WebRTC.
+
+**Package Version:** `peerjs@1.5.5`
+
+## Why PeerJS?
+
+PeerJS wraps WebRTC's complexity into a simple API:
+
+- **Simplified API**: No need to handle offers, answers, and ICE candidates manually
+- **Built-in Signaling**: Includes a cloud signaling server (or self-host)
+- **Data Channels**: Easy-to-use data connections
+- **Connection Management**: Automatic reconnection and error handling
+
+<Note>
+  While EduStream primarily uses native WebRTC for calls, PeerJS is available for specific use cases requiring simpler peer-to-peer communication.
+</Note>
+
+## Installation
+
+PeerJS is already included in the project:
+
+```bash
+npm install peerjs@1.5.5
+```
+
+## Basic Setup
+
+### Creating a Peer Service
+
+EduStream provides a centralized peer creation service:
+
+```javascript src/services/peerService.js
+import { Peer } from "peerjs"
+
+export const createPeer = (id = null) => {
+  return new Peer(id, {
+    host: 'localhost',
+    port: 3001,
+    path: '/',
+    secure: false
+  })
+}
+```
+
+<Info>
+  The peer service is configured to use a self-hosted PeerServer on port 3001. This must match your backend PeerServer configuration.
+</Info>
+
+### Configuration Options
+
+<Steps>
+  <Step title="Host & Port">
+    Specify your PeerServer location:
+
+    ```javascript
+    {
+      host: 'localhost',  // PeerServer hostname
+      port: 3001,         // PeerServer port
+      path: '/',          // PeerServer path
+    }
+    ```
+  </Step>
+
+  <Step title="Security">
+    Enable secure connections for production:
+
+    ```javascript
+    {
+      secure: true,  // Use wss:// instead of ws://
+    }
+    ```
+
+    <Warning>
+      Always use `secure: true` in production with HTTPS/WSS.
+    </Warning>
+  </Step>
+
+  <Step title="Custom Peer ID">
+    Provide a custom ID or let PeerJS generate one:
+
+    ```javascript
+    // Custom ID
+    const peer = createPeer('user-123')
+
+    // Auto-generated ID
+    const peer = createPeer()
+    ```
+  </Step>
+</Steps>
+
+## Complete Configuration
+
+### Production-Ready Setup
+
+```javascript
+import { Peer } from "peerjs"
+
+export const createPeer = (id = null) => {
+  return new Peer(id, {
+    // Server configuration
+    host: process.env.VITE_PEER_HOST || 'localhost',
+    port: process.env.VITE_PEER_PORT || 3001,
+    path: process.env.VITE_PEER_PATH || '/',
+    secure: process.env.NODE_ENV === 'production',
+    
+    // ICE servers (STUN/TURN)
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ]
+    },
+    
+    // Debug mode
+    debug: process.env.NODE_ENV === 'development' ? 3 : 0,
+  })
+}
+```
+
+### Environment Variables
+
+Add to your `.env` file:
+
+```bash .env
+VITE_PEER_HOST=your-server.com
+VITE_PEER_PORT=443
+VITE_PEER_PATH=/peerjs
+```
+
+## Using PeerJS in Components
+
+### Basic Peer Setup
+
+```vue
+<script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { createPeer } from '@/services/peerService'
+
+const peer = ref(null)
+const myPeerId = ref(null)
+const connection = ref(null)
+
+onMounted(() => {
+  // Create peer with user ID
+  const userId = localStorage.getItem('userId')
+  peer.value = createPeer(userId)
+  
+  // Peer opened
+  peer.value.on('open', (id) => {
+    console.log('My peer ID is:', id)
+    myPeerId.value = id
+  })
+  
+  // Handle incoming connections
+  peer.value.on('connection', (conn) => {
+    handleConnection(conn)
+  })
+  
+  // Handle errors
+  peer.value.on('error', (err) => {
+    console.error('Peer error:', err)
+  })
+})
+
+onBeforeUnmount(() => {
+  if (peer.value) {
+    peer.value.destroy()
+  }
+})
+</script>
+```
+
+## Data Connections
+
+### Connecting to Another Peer
+
+```javascript
+function connectToPeer(remotePeerId) {
+  connection.value = peer.value.connect(remotePeerId)
+  
+  connection.value.on('open', () => {
+    console.log('Connected to:', remotePeerId)
+    
+    // Send data
+    connection.value.send({
+      type: 'greeting',
+      message: 'Hello!'
+    })
+  })
+  
+  connection.value.on('data', (data) => {
+    console.log('Received:', data)
+  })
+  
+  connection.value.on('close', () => {
+    console.log('Connection closed')
+  })
+}
+```
+
+### Receiving Connections
+
+```javascript
+function handleConnection(conn) {
+  connection.value = conn
+  
+  conn.on('open', () => {
+    console.log('Peer connected')
+  })
+  
+  conn.on('data', (data) => {
+    console.log('Received data:', data)
+    
+    // Echo back
+    conn.send({ reply: 'Message received!' })
+  })
+  
+  conn.on('close', () => {
+    console.log('Peer disconnected')
+  })
+}
+```
+
+## Media Calls
+
+### Making a Call
+
+```javascript
+async function makeCall(remotePeerId) {
+  try {
+    // Get local media stream
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    })
+    
+    // Call peer with stream
+    const call = peer.value.call(remotePeerId, stream)
+    
+    // Handle answer
+    call.on('stream', (remoteStream) => {
+      // Display remote stream
+      const videoElement = document.getElementById('remote-video')
+      videoElement.srcObject = remoteStream
+    })
+    
+    call.on('close', () => {
+      console.log('Call ended')
+    })
+    
+    return call
+  } catch (error) {
+    console.error('Error making call:', error)
+  }
+}
+```
+
+### Answering a Call
+
+```javascript
+peer.value.on('call', async (call) => {
+  try {
+    // Get local stream
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    })
+    
+    // Answer the call with stream
+    call.answer(stream)
+    
+    // Handle remote stream
+    call.on('stream', (remoteStream) => {
+      const videoElement = document.getElementById('remote-video')
+      videoElement.srcObject = remoteStream
+    })
+    
+    call.on('close', () => {
+      console.log('Call ended')
+    })
+  } catch (error) {
+    console.error('Error answering call:', error)
+  }
+})
+```
+
+## Real-World Example
+
+### Complete Video Call Component
+
+<CodeGroup>
+```vue Template
+<template>
+  <div class="video-call">
+    <div v-if="!peerId">Connecting...</div>
+    
+    <div v-else>
+      <p>Your ID: {{ peerId }}</p>
+      
+      <div v-if="!inCall">
+        <input v-model="targetPeerId" placeholder="Enter peer ID" />
+        <button @click="startCall">Call</button>
+      </div>
+      
+      <div v-else>
+        <video ref="localVideo" autoplay muted></video>
+        <video ref="remoteVideo" autoplay></video>
+        <button @click="endCall">End Call</button>
+      </div>
+    </div>
+  </div>
+</template>
+```
+
+```javascript Script
+<script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { createPeer } from '@/services/peerService'
+
+const peer = ref(null)
+const peerId = ref(null)
+const targetPeerId = ref('')
+const currentCall = ref(null)
+const inCall = ref(false)
+const localVideo = ref(null)
+const remoteVideo = ref(null)
+const localStream = ref(null)
+
+onMounted(() => {
+  const userId = `user-${Date.now()}`
+  peer.value = createPeer(userId)
+  
+  peer.value.on('open', (id) => {
+    peerId.value = id
+  })
+  
+  // Handle incoming calls
+  peer.value.on('call', handleIncomingCall)
+})
+
+async function startCall() {
+  try {
+    localStream.value = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    })
+    
+    localVideo.value.srcObject = localStream.value
+    
+    currentCall.value = peer.value.call(
+      targetPeerId.value,
+      localStream.value
+    )
+    
+    currentCall.value.on('stream', (remoteStream) => {
+      remoteVideo.value.srcObject = remoteStream
+      inCall.value = true
+    })
+  } catch (error) {
+    console.error('Error starting call:', error)
+  }
+}
+
+async function handleIncomingCall(call) {
+  try {
+    localStream.value = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    })
+    
+    localVideo.value.srcObject = localStream.value
+    call.answer(localStream.value)
+    
+    call.on('stream', (remoteStream) => {
+      remoteVideo.value.srcObject = remoteStream
+      inCall.value = true
+    })
+    
+    currentCall.value = call
+  } catch (error) {
+    console.error('Error answering call:', error)
+  }
+}
+
+function endCall() {
+  if (currentCall.value) {
+    currentCall.value.close()
+  }
+  
+  if (localStream.value) {
+    localStream.value.getTracks().forEach(track => track.stop())
+  }
+  
+  inCall.value = false
+}
+
+onBeforeUnmount(() => {
+  endCall()
+  if (peer.value) {
+    peer.value.destroy()
+  }
+})
+</script>
+```
+</CodeGroup>
+
+## Event Reference
+
+### Peer Events
+
+| Event | Description | Callback Parameters |
+|-------|-------------|--------------------|
+| `open` | Peer connection established | `id` - Your peer ID |
+| `connection` | Incoming data connection | `dataConnection` |
+| `call` | Incoming media call | `mediaConnection` |
+| `close` | Peer connection closed | - |
+| `disconnected` | Disconnected from server | `peerId` |
+| `error` | Error occurred | `error` |
+
+### Data Connection Events
+
+| Event | Description | Callback Parameters |
+|-------|-------------|--------------------|
+| `open` | Connection established | - |
+| `data` | Data received | `data` |
+| `close` | Connection closed | - |
+| `error` | Connection error | `error` |
+
+### Media Connection Events
+
+| Event | Description | Callback Parameters |
+|-------|-------------|--------------------|
+| `stream` | Remote stream received | `mediaStream` |
+| `close` | Call ended | - |
+| `error` | Call error | `error` |
+
+## Error Handling
+
+```javascript
+peer.value.on('error', (err) => {
+  switch (err.type) {
+    case 'peer-unavailable':
+      console.error('Peer not found or unavailable')
+      break
+    
+    case 'network':
+      console.error('Network error')
+      break
+    
+    case 'server-error':
+      console.error('PeerServer error')
+      break
+    
+    case 'browser-incompatible':
+      console.error('Browser not supported')
+      break
+    
+    case 'disconnected':
+      console.error('Disconnected from server')
+      // Attempt reconnection
+      peer.value.reconnect()
+      break
+    
+    default:
+      console.error('Unknown error:', err)
+  }
+})
+```
+
+## Connection Lifecycle
+
+<Steps>
+  <Step title="Initialize Peer">
+    ```javascript
+    const peer = createPeer('my-unique-id')
+    ```
+  </Step>
+
+  <Step title="Wait for Open">
+    ```javascript
+    peer.on('open', (id) => {
+      console.log('Ready:', id)
+    })
+    ```
+  </Step>
+
+  <Step title="Connect or Listen">
+    ```javascript
+    // Connect to peer
+    const conn = peer.connect('other-peer-id')
+    
+    // Or listen for connections
+    peer.on('connection', (conn) => { })
+    ```
+  </Step>
+
+  <Step title="Exchange Data">
+    ```javascript
+    conn.on('data', (data) => {
+      console.log(data)
+    })
+    conn.send('Hello!')
+    ```
+  </Step>
+
+  <Step title="Cleanup">
+    ```javascript
+    conn.close()
+    peer.destroy()
+    ```
+  </Step>
+</Steps>
+
+## Advanced Configuration
+
+### Custom ICE Servers
+
+```javascript
+export const createPeer = (id = null) => {
+  return new Peer(id, {
+    host: 'localhost',
+    port: 3001,
+    path: '/',
+    secure: false,
+    config: {
+      iceServers: [
+        {
+          urls: 'stun:stun.l.google.com:19302'
+        },
+        {
+          urls: 'turn:your-turn-server.com:3478',
+          username: 'username',
+          credential: 'password'
+        }
+      ],
+      iceTransportPolicy: 'all',
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require',
+    }
+  })
+}
+```
+
+### Debug Mode
+
+```javascript
+const peer = new Peer(id, {
+  // ... other config
+  debug: 3  // 0 = none, 1 = errors, 2 = warnings, 3 = all
+})
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Use Unique IDs">
+    Generate unique peer IDs based on user identifiers:
+
+    ```javascript
+    const userId = userData.id
+    const peer = createPeer(`user-${userId}`)
+    ```
+  </Step>
+
+  <Step title="Handle Reconnection">
+    Implement automatic reconnection:
+
+    ```javascript
+    peer.on('disconnected', () => {
+      console.log('Reconnecting...')
+      peer.reconnect()
+    })
+    ```
+  </Step>
+
+  <Step title="Cleanup Resources">
+    Always destroy peers and close connections:
+
+    ```javascript
+    onBeforeUnmount(() => {
+      connection.value?.close()
+      peer.value?.destroy()
+    })
+    ```
+  </Step>
+
+  <Step title="Validate Data">
+    Validate incoming data for security:
+
+    ```javascript
+    conn.on('data', (data) => {
+      if (typeof data === 'object' && data.type) {
+        handleValidData(data)
+      }
+    })
+    ```
+  </Step>
+</Steps>
+
+## Comparison: PeerJS vs Native WebRTC
+
+| Feature | PeerJS | Native WebRTC |
+|---------|--------|---------------|
+| **Ease of Use** | Simple API | Complex API |
+| **Signaling** | Built-in | Manual implementation |
+| **Code Size** | Minimal | Verbose |
+| **Flexibility** | Limited | Full control |
+| **Use Case** | Quick implementation | Production apps |
+
+<Info>
+  EduStream uses **native WebRTC** for video calls to have full control over the signaling process and integration with Socket.io.
+</Info>
+
+## Troubleshooting
+
+### Peer Not Connecting
+
+```javascript
+// Check if peer is connected to server
+if (peer.value.disconnected) {
+  peer.value.reconnect()
+}
+
+// Verify peer ID exists
+if (!peer.value.id) {
+  console.error('Peer ID not available yet')
+}
+```
+
+### Connection Fails
+
+```javascript
+// Add timeout
+const conn = peer.value.connect(remotePeerId)
+
+setTimeout(() => {
+  if (!conn.open) {
+    console.error('Connection timeout')
+    conn.close()
+  }
+}, 10000) // 10 seconds
+```
+
+### Call Issues
+
+```javascript
+// Ensure media permissions
+try {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: true,
+    audio: true
+  })
+} catch (err) {
+  if (err.name === 'NotAllowedError') {
+    alert('Please allow camera and microphone access')
+  }
+}
+```
+
+## Server Setup
+
+### PeerServer Configuration
+
+If self-hosting, configure PeerServer on your backend:
+
+```javascript
+import { PeerServer } from 'peer'
+
+const peerServer = PeerServer({
+  port: 3001,
+  path: '/',
+  allow_discovery: true
+})
+
+peerServer.on('connection', (client) => {
+  console.log('Client connected:', client.id)
+})
+
+peerServer.on('disconnect', (client) => {
+  console.log('Client disconnected:', client.id)
+})
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Socket.io Integration" icon="plug" href="/development/socket-integration">
+    Learn about Socket.io for signaling
+  </Card>
+  <Card title="WebRTC Setup" icon="video" href="/development/webrtc-setup">
+    Deep dive into native WebRTC implementation
+  </Card>
+</CardGroup>

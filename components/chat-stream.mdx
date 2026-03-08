@@ -1,0 +1,272 @@
+---
+title: ChatStreamComponent
+description: Real-time chat component for live streaming sessions with WebSocket integration
+---
+
+## Overview
+
+The `ChatStreamComponent` provides a real-time chat interface for live streaming sessions. It connects to a WebSocket server to enable instant messaging between hosts and viewers during live transmissions.
+
+## Component Location
+
+```
+src/components/ChatStreamComponent.vue
+```
+
+## Props
+
+<ParamField path="roomId" type="String" required>
+  The unique identifier for the streaming room. This is multiplied by 1024 internally to generate the chat room ID.
+</ParamField>
+
+<ParamField path="userData" type="Object" required>
+  Object containing user information including:
+  - `id`: User identifier
+  - `name`: User display name
+  - `email`: User email (used as fallback for display)
+</ParamField>
+
+<ParamField path="isHost" type="Boolean" default="false">
+  Indicates whether the current user is the host of the streaming session.
+</ParamField>
+
+<ParamField path="isExpanded" type="Boolean" default="true">
+  Controls the visibility of the chat panel. When false, the chat is hidden.
+</ParamField>
+
+## Features
+
+### Real-time Messaging
+
+- WebSocket-based instant messaging
+- Connection status indicator
+- Message count display
+- Auto-scroll to latest messages
+- Timestamp formatting
+
+### UI Components
+
+- Expandable/collapsible chat panel
+- Message input with send button
+- Connection status indicator (● Connected / ○ Disconnected)
+- Message counter badge
+- Custom scrollbar styling
+
+## Events
+
+### Socket Events (Emitted)
+
+<ParamField path="room-stream" type="Object">
+  Emitted on component mount to join the chat room.
+  
+  Payload:
+  ```javascript
+  {
+    userId: userData.id,
+    room: 1024 * roomId
+  }
+  ```
+</ParamField>
+
+<ParamField path="sendMessageStream" type="Object">
+  Emitted when user sends a message.
+  
+  Payload:
+  ```javascript
+  {
+    user: userData.name || userData.email || 'Usuario',
+    message: mensaje,
+    id_chat: 1024 * roomId
+  }
+  ```
+</ParamField>
+
+### Socket Events (Received)
+
+<ParamField path="newMessageStream" type="Object">
+  Received when a new message arrives from any participant.
+  
+  Structure:
+  ```javascript
+  {
+    user: String,
+    message: String,
+    timestamp: Number (optional),
+    id: Number (optional)
+  }
+  ```
+</ParamField>
+
+## Usage Example
+
+<CodeGroup>
+```vue Host Usage
+<template>
+  <div class="streaming-container">
+    <!-- Video content -->
+    
+    <ChatStreamComponent
+      :room-id="streamId"
+      :user-data="currentUser"
+      :is-host="true"
+      :is-expanded="chatVisible"
+    />
+  </div>
+</template>
+
+<script>
+import ChatStreamComponent from '@/components/ChatStreamComponent.vue'
+
+export default {
+  components: {
+    ChatStreamComponent
+  },
+  data() {
+    return {
+      streamId: '12345',
+      currentUser: {
+        id: 1,
+        name: 'John Doe',
+        email: 'john@example.com'
+      },
+      chatVisible: true
+    }
+  }
+}
+</script>
+```
+
+```vue Viewer Usage
+<template>
+  <div class="viewer-container">
+    <!-- Video content -->
+    
+    <ChatStreamComponent
+      :room-id="streamId"
+      :user-data="currentUser"
+      :is-host="false"
+      :is-expanded="true"
+    />
+  </div>
+</template>
+
+<script>
+import ChatStreamComponent from '@/components/ChatStreamComponent.vue'
+
+export default {
+  components: {
+    ChatStreamComponent
+  },
+  data() {
+    return {
+      streamId: '12345',
+      currentUser: {
+        id: 2,
+        name: 'Jane Smith',
+        email: 'jane@example.com'
+      }
+    }
+  }
+}
+</script>
+```
+</CodeGroup>
+
+## Methods
+
+### connectChat()
+
+Establishes the WebSocket connection to the chat room.
+
+```javascript
+connectChat() {
+  const idRoom = 1024 * this.roomId
+  socket.emit('room-stream', { 
+    userId: this.userData.id, 
+    room: idRoom 
+  })
+}
+```
+
+### enviarMensaje()
+
+Sends a chat message to all participants.
+
+```javascript
+enviarMensaje() {
+  if (!this.mensaje.trim() || !this.isConnected) return
+  
+  const msgData = {
+    user: this.userData.name || this.userData.email || 'Usuario',
+    message: this.mensaje,
+    id_chat: 1024 * this.roomId
+  }
+  
+  socket.emit('sendMessageStream', msgData)
+  this.chat.push({ ...msgData, user: 'Tú' })
+  this.mensaje = ''
+}
+```
+
+### formatTime(timestamp)
+
+Formats a timestamp into a readable time string.
+
+```javascript
+formatTime(timestamp) {
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString([], { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  })
+}
+```
+
+### scrollToBottom()
+
+Automatically scrolls the chat container to show the latest messages.
+
+```javascript
+scrollToBottom() {
+  const container = this.$refs.chatContainer
+  if (container) {
+    container.scrollTop = container.scrollHeight
+  }
+}
+```
+
+## Styling
+
+The component includes custom scrollbar styling for better visual appearance:
+
+```css
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+```
+
+## Dependencies
+
+- **@heroicons/vue**: For UI icons (PaperAirplaneIcon, etc.)
+- **socket.js**: WebSocket service for real-time communication
+
+<Info>
+  The chat component automatically connects when mounted and handles message reception via WebSocket events. Messages are displayed with user identification and optional timestamps.
+</Info>
+
+<Note>
+  The component uses a room ID multiplied by 1024 to generate unique chat room identifiers. Ensure your backend socket server handles this convention consistently.
+</Note>

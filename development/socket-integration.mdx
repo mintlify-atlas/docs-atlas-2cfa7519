@@ -1,0 +1,302 @@
+---
+title: "Socket.io Integration"
+description: "Learn how to integrate Socket.io for real-time messaging and room management in EduStream"
+---
+
+## Overview
+
+EduStream uses Socket.io for real-time bidirectional communication between clients and the server. This enables features like live chat, call signaling, and real-time updates.
+
+**Package Version:** `socket.io-client@4.8.1`
+
+## Installation
+
+Socket.io client is already included in the project dependencies:
+
+```bash
+npm install socket.io-client@4.8.1
+```
+
+## Basic Setup
+
+<Steps>
+  <Step title="Create Socket Service">
+    Create a centralized socket service at `src/services/socket.js`:
+
+    ```javascript src/services/socket.js
+    import { io } from 'socket.io-client'
+
+    const socket = io('http://localhost:3001', {
+      autoConnect: true,
+    })
+
+    export default socket
+    ```
+
+    <Note>
+      The socket connection is configured to automatically connect on initialization. For production, replace `localhost:3001` with your server URL.
+    </Note>
+  </Step>
+
+  <Step title="Import in Components">
+    Import the socket instance in any Vue component:
+
+    ```javascript
+    import socket from '@/services/socket.js'
+    ```
+  </Step>
+
+  <Step title="Verify Connection">
+    Check the connection status:
+
+    ```javascript
+    if (!socket.connected) {
+      socket.connect()
+    }
+    ```
+  </Step>
+</Steps>
+
+## Chat Integration
+
+EduStream implements real-time chat using Socket.io for streaming sessions.
+
+### Joining a Chat Room
+
+```javascript
+connectChat() {
+  const idRoom = 1024 * this.roomId
+  socket.emit('room-stream', { 
+    userId: this.userData.id, 
+    room: idRoom 
+  })
+}
+```
+
+<Info>
+  Room IDs are multiplied by 1024 to create unique identifiers for streaming sessions.
+</Info>
+
+### Sending Messages
+
+```javascript
+enviarMensaje() {
+  if (!this.mensaje.trim() || !this.isConnected) return
+  
+  const msgData = {
+    user: this.userData.name || this.userData.email || 'Usuario',
+    message: this.mensaje,
+    id_chat: 1024 * this.roomId,
+  }
+  
+  socket.emit('sendMessageStream', msgData)
+  this.chat.push({ ...msgData, user: 'Tú' })
+  this.mensaje = ''
+}
+```
+
+### Receiving Messages
+
+Listen for incoming messages in the component's `mounted` hook:
+
+```javascript
+mounted() {
+  this.connectChat()
+  this.isConnected = true
+  
+  socket.on("newMessageStream", (data) => {
+    console.log("Mensaje recibido:", data)
+    this.chat.push(data)
+  })
+}
+```
+
+## Video Call Signaling
+
+Socket.io handles WebRTC signaling for establishing peer connections.
+
+### Joining Video Room
+
+```javascript
+const userData = JSON.parse(localStorage.getItem('user'))
+const myId = userData?.id
+
+socket.emit('join-video-room', myId)
+```
+
+### Call Signaling Events
+
+<CodeGroup>
+```javascript Initiating a Call
+socket.emit('call-user', {
+  userToCall: targetId,
+  signalData: offer,
+  from: userData.id,
+  name: userData.name,
+  avatar: userData.photo,
+})
+```
+
+```javascript Answering a Call
+socket.emit('make-answer', {
+  signal: answer,
+  to: targetId,
+})
+```
+
+```javascript Ending a Call
+socket.emit('end-call', { to: targetId })
+```
+</CodeGroup>
+
+### Listening for Call Events
+
+```javascript
+// Call answered
+socket.on('call-answered', async (data) => {
+  callState.value = 'connected'
+  await peerConnection.value.setRemoteDescription(
+    new RTCSessionDescription(data.signal)
+  )
+})
+
+// ICE candidate received
+socket.on('ice-candidate', async (data) => {
+  if (peerConnection.value) {
+    await peerConnection.value.addIceCandidate(
+      new RTCIceCandidate(data.candidate)
+    )
+  }
+})
+
+// Call rejected
+socket.on('call-rejected', () => {
+  router.push({ name: 'chats' })
+})
+
+// Call ended by peer
+socket.on('call-ended', () => {
+  endCall(false)
+})
+```
+
+## Connection Management
+
+### Manual Connection Control
+
+```javascript
+// Connect
+if (!socket.connected) {
+  socket.connect()
+}
+
+// Disconnect
+socket.disconnect()
+
+// Check status
+const isConnected = socket.connected
+```
+
+### Cleanup on Component Unmount
+
+<Warning>
+  Always remove event listeners when a component is unmounted to prevent memory leaks.
+</Warning>
+
+```javascript
+onBeforeUnmount(() => {
+  socket.off('call-answered')
+  socket.off('ice-candidate')
+  socket.off('call-rejected')
+  socket.off('call-ended')
+  socket.off('newMessageStream')
+})
+```
+
+## Event Reference
+
+### Emitted Events (Client → Server)
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `room-stream` | `{ userId, room }` | Join a chat room |
+| `sendMessageStream` | `{ user, message, id_chat }` | Send a chat message |
+| `join-video-room` | `userId` | Join video signaling room |
+| `call-user` | `{ userToCall, signalData, from, name, avatar }` | Initiate a call |
+| `make-answer` | `{ signal, to }` | Answer incoming call |
+| `ice-candidate` | `{ candidate, to }` | Send ICE candidate |
+| `end-call` | `{ to }` | End active call |
+
+### Received Events (Server → Client)
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `newMessageStream` | `{ user, message, timestamp }` | New chat message |
+| `call-answered` | `{ signal }` | Call was answered |
+| `ice-candidate` | `{ candidate }` | ICE candidate received |
+| `call-rejected` | - | Call was rejected |
+| `call-ended` | - | Call ended by peer |
+
+## Best Practices
+
+<Steps>
+  <Step title="Centralize Socket Instance">
+    Use a single socket instance across your application to avoid multiple connections.
+  </Step>
+
+  <Step title="Handle Reconnection">
+    Implement reconnection logic for unstable network conditions:
+
+    ```javascript
+    socket.on('connect', () => {
+      console.log('Socket connected')
+      this.isConnected = true
+    })
+
+    socket.on('disconnect', () => {
+      console.log('Socket disconnected')
+      this.isConnected = false
+    })
+    ```
+  </Step>
+
+  <Step title="Clean Up Listeners">
+    Always remove event listeners in `onBeforeUnmount` or `beforeDestroy` hooks.
+  </Step>
+
+  <Step title="Error Handling">
+    Implement error handlers for socket events:
+
+    ```javascript
+    socket.on('connect_error', (error) => {
+      console.error('Connection error:', error)
+    })
+    ```
+  </Step>
+</Steps>
+
+## Configuration Options
+
+Customize the socket connection with additional options:
+
+```javascript
+const socket = io('http://localhost:3001', {
+  autoConnect: true,
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  timeout: 20000,
+  transports: ['websocket', 'polling'],
+})
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="WebRTC Setup" icon="video" href="/development/webrtc-setup">
+    Learn how to implement WebRTC for video calls
+  </Card>
+  <Card title="PeerJS Configuration" icon="network-wired" href="/development/peerjs-configuration">
+    Configure PeerJS for peer-to-peer connections
+  </Card>
+</CardGroup>

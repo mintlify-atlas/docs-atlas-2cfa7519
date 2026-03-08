@@ -1,0 +1,196 @@
+---
+title: Dashboard
+description: Understand your EduStream dashboard and access key features
+---
+
+## Overview
+
+The Dashboard is your central hub for monitoring platform activity and accessing key features. It provides real-time statistics, quick access to live streams, and group management.
+
+## Dashboard Layout
+
+The dashboard consists of several key sections:
+
+### Statistics Panel
+
+At the top of your dashboard, you'll find four key metrics:
+
+<CardGroup cols={2}>
+  <Card title="Active Users" icon="users">
+    Shows the current number of online users across the platform.
+    
+    Icon: Green user group icon
+  </Card>
+  
+  <Card title="Live Streams" icon="video">
+    Displays how many live streaming sessions are currently active.
+    
+    Icon: Red camera icon
+  </Card>
+  
+  <Card title="Messages Today" icon="message">
+    Total number of messages sent across all groups today.
+    
+    Icon: Blue chat bubble icon
+  </Card>
+  
+  <Card title="Active Groups" icon="user-group">
+    Number of groups with recent activity.
+    
+    Icon: Green group icon
+  </Card>
+</CardGroup>
+
+<Note>
+  These statistics update in real-time as platform activity changes.
+</Note>
+
+### Hourly Activity Chart
+
+Below the statistics cards, you'll see a visual chart showing message activity by hour:
+
+- **X-axis**: Hours of the day (0-23)
+- **Y-axis**: Number of messages
+- **Updates**: Refreshes automatically when new data is available
+
+<Tip>
+  Use the activity chart to identify peak usage times for scheduling important streams or announcements.
+</Tip>
+
+## Live Streams Section
+
+The "Transmisiones en Vivo" (Live Streams) section displays all currently active streams:
+
+### Stream Card Information
+
+Each live stream card shows:
+
+- **EN VIVO badge**: Red animated badge indicating active status
+- **Stream Name**: Title of the streaming session
+- **Host Name**: Who is hosting the stream
+- **Thumbnail**: Video preview (if available)
+
+### Joining a Stream
+
+<Steps>
+  <Step title="Click on a Stream Card">
+    Browse the available live streams and click on the one you want to join.
+  </Step>
+  
+  <Step title="Confirm Join">
+    A modal will appear asking "¿Ingresar a la reunión?" (Join the meeting?)
+    
+    You'll see:
+    - Stream name
+    - Confirmation message
+    - "Cancelar" (Cancel) and "Unirse ahora" (Join now) buttons
+  </Step>
+  
+  <Step title="Enter Stream">
+    Click "Unirse ahora" to join the live stream as a viewer.
+  </Step>
+</Steps>
+
+<Info>
+  If no streams are available, you'll see a message: "No hay transmisiones en vivo disponibles"
+</Info>
+
+## Groups Section
+
+The "Grupos" section displays all groups you're a member of:
+
+### Group Card Information
+
+Each group card displays:
+
+- **Group Avatar**: Photo or auto-generated avatar based on group name
+- **Group Name**: Title of the group
+- **Description**: Brief description of the group's purpose
+- **Member Count**: Number of members in the group
+
+### Opening Group Details
+
+<Steps>
+  <Step title="Click a Group Card">
+    Click on any group to open its detailed view in a modal.
+  </Step>
+  
+  <Step title="View Group Information">
+    The modal displays:
+    - Group photo and name
+    - Group description
+    - Messages timeline
+    - Member list with admin indicators
+  </Step>
+  
+  <Step title="Interact with Messages">
+    Scroll through the message history to see:
+    - Date separators ("Hoy", "Ayer", specific dates)
+    - User avatars and names
+    - Message content
+    - Timestamps
+  </Step>
+</Steps>
+
+### Group Modal Features
+
+<Accordion title="Messages Column">
+  The left column shows the group's message history:
+  - Messages grouped by date
+  - Sender information (name and avatar)
+  - Timestamp for each message
+  - Auto-scroll to latest messages
+</Accordion>
+
+<Accordion title="Members Column">
+  The right column lists all group members:
+  - Member photos
+  - Member names and emails
+  - Admin badge for administrators
+  - Total member count
+</Accordion>
+
+<Accordion title="Loading States">
+  When fetching group details:
+  - A loading spinner appears
+  - Message "Cargando detalles..." (Loading details) displays
+  - The modal remains interactive with basic info
+</Accordion>
+
+## Navigation Tips
+
+<CardGroup cols={2}>
+  <Card title="Real-time Updates" icon="arrows-rotate">
+    The dashboard automatically refreshes when:
+    - New users come online
+    - Streams start or end
+    - Messages are sent
+    - Groups are created
+  </Card>
+  
+  <Card title="Responsive Design" icon="mobile-screen">
+    The dashboard adapts to different screen sizes:
+    - Desktop: Full grid layout
+    - Tablet: Optimized card sizes
+    - Mobile: Stacked layout
+  </Card>
+</CardGroup>
+
+## Quick Actions
+
+From the dashboard, you can quickly:
+
+1. **Join Live Streams**: Click any active stream card
+2. **View Groups**: Click a group to see messages and members
+3. **Monitor Activity**: Check real-time statistics
+4. **Analyze Trends**: Review the hourly activity chart
+
+<Tip>
+  Hover over stream and group cards to see interactive hover effects highlighting clickable areas.
+</Tip>
+
+## Next Steps
+
+- Learn how to [Host a Stream](/guide/hosting-stream)
+- Understand [Group Management](/guide/managing-groups)
+- Explore [Making Calls](/guide/making-calls)

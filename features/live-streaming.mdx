@@ -1,0 +1,387 @@
+---
+title: Live Streaming
+description: Host and join real-time educational broadcasts with screen sharing, recording, and participant management
+---
+
+## Overview
+
+EduStream's live streaming feature enables educators to broadcast real-time video sessions to multiple participants. Hosts can share their screen, manage participants, record sessions, and interact through integrated chat.
+
+## Host Features
+
+### Starting a Live Stream
+
+Hosts can initiate a live stream with full control over participants and content sharing:
+
+<Steps>
+  <Step title="Initialize Stream">
+    The stream starts by setting up WebRTC peer connections and requesting media permissions.
+    
+    ```javascript
+    // From LiveHost.vue:862
+    async startMeeting() {
+      // Request camera and microphone access
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640, max: 640 },
+          height: { ideal: 480, max: 480 },
+          frameRate: { ideal: 15, max: 30 }
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      })
+    }
+    ```
+  </Step>
+  
+  <Step title="Create Peer Connection">
+    A PeerJS connection is established to handle WebRTC connections:
+    
+    ```javascript
+    // From LiveHost.vue:905
+    this.peer = new Peer(undefined, {
+      host: 'localhost',
+      port: 3001,
+      path: '/peerjs',
+      debug: 3
+    })
+    ```
+  </Step>
+  
+  <Step title="Update Stream Status">
+    The transmission status is updated in the database:
+    
+    ```javascript
+    // From LiveHost.vue:785
+    await api.put(`/transmissions/${this.roomId}/status`, { status: 1 })
+    ```
+  </Step>
+</Steps>
+
+### Participant Management
+
+#### Waiting Room
+
+Participants join a waiting room before being admitted to the stream:
+
+```vue
+<!-- From LiveHost.vue:51-85 -->
+<div>
+  <h3>Sala de espera</h3>
+  <div v-for="user in salaEspera" :key="user.id">
+    <span>{{ user.name }}</span>
+    <button @click="admitir(user)">Admitir</button>
+    <button @click="rechazar(user)">Rechazar</button>
+  </div>
+</div>
+```
+
+#### Active Participants
+
+Hosts can view and manage all active participants:
+
+<CardGroup cols={2}>
+  <Card title="Mute Participant" icon="microphone-slash">
+    Temporarily disable a participant's audio
+  </Card>
+  <Card title="Remove Participant" icon="user-minus">
+    Expel a participant from the stream
+  </Card>
+  <Card title="View Audio Status" icon="volume-up">
+    See real-time audio activity indicators
+  </Card>
+  <Card title="Participant Count" icon="users">
+    Monitor total active participants
+  </Card>
+</CardGroup>
+
+### Screen Sharing
+
+Hosts can share their screen with all participants:
+
+```javascript
+// From LiveHost.vue:1049
+async startScreenShare() {
+  this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: false
+  })
+  
+  const screenTrack = this.screenStream.getVideoTracks()[0]
+  this.pantallaAct = true
+  
+  // Replace video track for all viewers
+  await this.replaceVideoTrackForAll(screenTrack)
+  
+  // Handle when user stops sharing
+  screenTrack.onended = () => {
+    this.stopScreenShare()
+  }
+}
+```
+
+<Note>
+When screen sharing is active, the host's camera feed appears as a small picture-in-picture overlay in the bottom right corner.
+</Note>
+
+### Recording
+
+Streams can be recorded and uploaded to api.video:
+
+<Steps>
+  <Step title="Start Recording">
+    Recording captures the shared screen or camera:
+    
+    ```javascript
+    // From LiveHost.vue:1393
+    async startRecording() {
+      // Get upload token
+      const token = await this.getUploadToken()
+      
+      // Setup MediaRecorder
+      const mimeType = this.getSupportedMimeType()
+      this.mediaRecorder = new MediaRecorder(this.screenStream, { mimeType })
+      
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.recordedChunks.push(event.data)
+        }
+      }
+      
+      this.mediaRecorder.start(1000)
+      this.isRecording = true
+    }
+    ```
+  </Step>
+  
+  <Step title="Upload to api.video">
+    When recording stops, the video is uploaded:
+    
+    ```javascript
+    // From LiveHost.vue:1458
+    async uploadToApiVideo() {
+      const blob = new Blob(this.recordedChunks, { type: mimeType })
+      const formData = new FormData()
+      formData.append('file', blob, `reunion-${this.roomId}-${Date.now()}.webm`)
+      
+      const response = await axios.post(
+        `https://ws.api.video/upload?token=${this.uploadToken}`,
+        formData,
+        {
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            )
+            this.uploadProgress = percentCompleted
+          }
+        }
+      )
+    }
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+Recording automatically stops if the user stops screen sharing. The recording link is saved to the transmission record when the stream ends.
+</Warning>
+
+### Stream Controls
+
+Hosts have access to the following controls during a live stream:
+
+| Control | Icon | Function |
+|---------|------|----------|
+| Microphone | 🎤 | Toggle audio on/off |
+| Camera | 📹 | Toggle video on/off |
+| Screen Share | 🖥️ | Share/stop sharing screen |
+| Record | ⏺️ | Start/stop recording |
+| Expand | ⬅️➡️ | Toggle sidebar visibility |
+| End Stream | ⚡ | Terminate the stream |
+
+## Viewer Experience
+
+### Joining a Stream
+
+Viewers request to join and wait for host approval:
+
+```javascript
+// From LiveViewer.vue:442
+socket.emit('request-join', {
+  roomId: this.roomId,
+  viewerData: {
+    ...this.userData,
+    socketId: socket.id
+  }
+})
+```
+
+### Viewer Controls
+
+Viewers can control their own media during the stream:
+
+```vue
+<!-- From LiveViewer.vue:79-127 -->
+<div class="flex justify-center items-center space-x-3 my-2">
+  <button @click="toggleLocalAudio">
+    <MicrophoneIcon />
+  </button>
+  
+  <button @click="toggleLocalVideo">
+    <VideoCameraIcon />
+  </button>
+  
+  <button @click="toggleScreenShare">
+    <ComputerDesktopIcon />
+  </button>
+  
+  <button @click="handleEndStream">
+    <XMarkIcon />
+  </button>
+</div>
+```
+
+<Info>
+Viewers can also share their screen and enable their camera to become active participants in the stream.
+</Info>
+
+### Multi-Participant View
+
+The viewer interface shows:
+
+- **Main Video**: Large view of the host or selected participant
+- **Participant Thumbnails**: Sidebar with all active participants
+- **Participant Count**: Live counter of connected viewers
+- **Stream Duration**: Real-time timer synced with host
+
+## Stream Timing
+
+All participants see synchronized stream duration:
+
+```javascript
+// From LiveHost.vue:1213
+iniciarContador() {
+  const startMs = this.startTime < 10000000000 
+    ? this.startTime * 1000 
+    : this.startTime
+  
+  this.intervalo = setInterval(() => {
+    const ahora = Date.now()
+    const diffInMs = ahora - startMs
+    const segundosTranscurridos = Math.floor(diffInMs / 1000)
+    this.tiempo = segundosTranscurridos > 0 ? segundosTranscurridos : 0
+    this.tiempoFormateado = this.formatTime(this.tiempo)
+  }, 1000)
+}
+```
+
+## Sharing Streams
+
+Hosts can share stream links to groups:
+
+<Accordion title="Share to Groups">
+  ```vue
+  <!-- From LiveHost.vue:416-484 -->
+  <Teleport to="body">
+    <div v-if="showShareModal">
+      <h2>Compartir transmisión</h2>
+      <input v-model="shareSearch" placeholder="Buscar grupo..." />
+      
+      <div v-for="item in filteredGroups" :key="item.id">
+        <img :src="item.foto" />
+        <span>{{ item.nombre }}</span>
+        <input type="checkbox" @click="toggleShareTarget(item)" />
+      </div>
+      
+      <button @click="sendToSelected">Enviar</button>
+    </div>
+  </Teleport>
+  ```
+</Accordion>
+
+## Technical Architecture
+
+### WebRTC Configuration
+
+EduStream uses PeerJS for WebRTC connections:
+
+```javascript
+// Peer server configuration
+const peer = new Peer(undefined, {
+  host: 'localhost',
+  port: 3001,
+  path: '/peerjs',
+  debug: 3
+})
+```
+
+### Socket Events
+
+| Event | Direction | Purpose |
+|-------|-----------|----------|
+| `start-stream` | Host → Server | Initialize stream |
+| `pending-request` | Server → Host | Viewer join request |
+| `response-request` | Host → Server | Admit/reject viewer |
+| `left-room` | Server → Host | Viewer disconnected |
+| `end-stream` | Host → Server | Terminate stream |
+| `expel-viewer` | Host → Server | Remove participant |
+
+### Media Constraints
+
+<Tabs>
+  <Tab title="Host Video">
+    ```javascript
+    video: {
+      width: { ideal: 640, max: 640 },
+      height: { ideal: 480, max: 480 },
+      frameRate: { ideal: 15, max: 30 }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Viewer Video">
+    ```javascript
+    video: {
+      width: { ideal: 320, max: 320 },
+      height: { ideal: 240, max: 240 },
+      frameRate: { ideal: 15, max: 30 }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Audio">
+    ```javascript
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Admit Participants Promptly" icon="user-check">
+    Review and admit waiting participants quickly to maintain engagement
+  </Card>
+  
+  <Card title="Test Before Going Live" icon="flask">
+    Verify camera, microphone, and screen sharing before starting
+  </Card>
+  
+  <Card title="Use Recording Wisely" icon="circle-dot">
+    Enable recording for important sessions to create on-demand content
+  </Card>
+  
+  <Card title="Monitor Participant Count" icon="chart-line">
+    Keep track of active participants throughout the stream
+  </Card>
+</CardGroup>
+
+<Tip>
+For optimal performance, encourage participants to use wired connections and close unnecessary applications.
+</Tip>

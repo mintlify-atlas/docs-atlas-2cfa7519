@@ -1,0 +1,105 @@
+---
+title: Authentication
+description: Learn how to sign in and access your EduStream account
+---
+
+## Overview
+
+EduStream uses a secure email and password authentication system to protect your account. Once logged in, you'll have access to all platform features including live streams, groups, and direct calls.
+
+## Signing In
+
+<Steps>
+  <Step title="Navigate to the Login Page">
+    Open EduStream in your web browser. You'll be greeted with the login screen featuring:
+    - A user avatar icon at the top
+    - Email and password input fields
+    - A "Show password" toggle button
+  </Step>
+
+  <Step title="Enter Your Credentials">
+    Fill in your login information:
+    - **Email**: Enter your registered email address
+    - **Password**: Type your password securely
+    
+    <Tip>
+      Click the eye icon next to the password field to toggle password visibility.
+    </Tip>
+  </Step>
+
+  <Step title="Click Sign In">
+    Press the "Ingresar" (Sign In) button to authenticate. The button will show a loading spinner while processing your request.
+  </Step>
+</Steps>
+
+## What Happens After Login
+
+Once you successfully authenticate:
+
+1. **Token Storage**: A secure authentication token is stored locally in your browser
+2. **User Profile**: Your user information is cached for quick access
+3. **Socket Connection**: A real-time WebSocket connection is established for live features
+4. **Redirect**: You're automatically redirected to the Dashboard
+
+<Info>
+  Your session remains active until you explicitly log out or your authentication token expires.
+</Info>
+
+## Troubleshooting Login Issues
+
+### Error Messages
+
+If you encounter login problems, you'll see an error alert at the top of the form:
+
+<CardGroup cols={2}>
+  <Card title="Account Locked" icon="lock">
+    Your account may be temporarily locked. Contact your administrator to unlock it.
+  </Card>
+  
+  <Card title="Invalid Credentials" icon="triangle-exclamation">
+    Double-check your email and password. Remember that passwords are case-sensitive.
+  </Card>
+</CardGroup>
+
+### Common Solutions
+
+<Accordion title="Clear Browser Cache">
+  Sometimes cached data can interfere with login. Try clearing your browser's cache and cookies, then attempt to sign in again.
+</Accordion>
+
+<Accordion title="Check Network Connection">
+  Ensure you have a stable internet connection. Login requires communication with the EduStream servers.
+</Accordion>
+
+<Accordion title="Browser Compatibility">
+  EduStream works best with modern browsers like Chrome, Firefox, Safari, or Edge. Make sure your browser is up to date.
+</Accordion>
+
+## Security Features
+
+<CardGroup cols={2}>
+  <Card title="Encrypted Connection" icon="shield-halved">
+    All authentication traffic is encrypted using HTTPS to protect your credentials.
+  </Card>
+  
+  <Card title="Session Management" icon="clock">
+    Your session is securely managed with JWT tokens that expire automatically.
+  </Card>
+  
+  <Card title="Account Status" icon="user-check">
+    Administrators can lock/unlock accounts to maintain platform security.
+  </Card>
+  
+  <Card title="Auto-Logout" icon="arrow-right-from-bracket">
+    Inactive sessions are automatically terminated after a period of inactivity.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+After logging in successfully:
+
+- Explore the [Dashboard](/guide/dashboard) to see platform statistics
+- Join or host a [Live Stream](/guide/hosting-stream)
+- Create or join [Groups](/guide/managing-groups) for collaboration
+- Make [Direct Calls](/guide/making-calls) to other users

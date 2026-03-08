@@ -1,0 +1,439 @@
+---
+title: Managing Groups
+description: Learn how to create, manage, and participate in groups on EduStream
+---
+
+## Overview
+
+Groups on EduStream allow you to organize team communication, share resources, and collaborate on educational content. Create groups for classes, study teams, or project collaboration.
+
+## Group Interface
+
+The Groups view is divided into two main sections:
+
+<CardGroup cols={2}>
+  <Card title="Groups Sidebar" icon="list">
+    Left panel showing all your groups with recent activity.
+  </Card>
+  
+  <Card title="Conversation Panel" icon="messages">
+    Center/right area for viewing messages and group details.
+  </Card>
+</CardGroup>
+
+## Creating a Group
+
+<Steps>
+  <Step title="Open Create Modal">
+    Click the blue **+** button in the top-right of the Groups sidebar.
+  </Step>
+  
+  <Step title="Add Group Photo">
+    Optionally upload a group photo:
+    - Click the camera icon placeholder
+    - Select an image from your device
+    - The photo appears as a circular avatar
+  </Step>
+  
+  <Step title="Enter Group Details">
+    Fill in the required information:
+    - **Nombre del grupo** (Group name): Required
+    - **Descripción** (Description): Brief purpose or topic
+  </Step>
+  
+  <Step title="Configure Messaging">
+    Toggle "Solo admins envían mensajes" (Only admins send messages):
+    - **ON** (blue): Only administrators can post messages
+    - **OFF** (gray): All members can send messages
+  </Step>
+  
+  <Step title="Create Group">
+    Click the "Crear Grupo" (Create Group) button.
+  </Step>
+</Steps>
+
+<Info>
+  If you don't upload a photo, an auto-generated avatar based on the group name will be created.
+</Info>
+
+## Group Sidebar
+
+Each group in the sidebar displays:
+
+- **Group avatar**: Photo or auto-generated icon
+- **Group name**: Title in bold
+- **Last message preview**: Most recent message text
+- **Unread badge**: Blue badge showing number of new messages
+- **Active indicator**: Blue left border for selected group
+
+<Tip>
+  Groups are automatically sorted with the most recently active at the top.
+</Tip>
+
+## Viewing Group Messages
+
+<Steps>
+  <Step title="Select a Group">
+    Click any group in the sidebar to open it.
+  </Step>
+  
+  <Step title="View Message History">
+    Messages are organized by date with:
+    - Date dividers ("Hoy", "Ayer", specific dates)
+    - Sender names (for others' messages)
+    - Message bubbles (blue for you, gray for others)
+    - Timestamps below each message
+  </Step>
+  
+  <Step title="Scroll Through History">
+    Use the scrollbar or scroll wheel to view older messages.
+  </Step>
+</Steps>
+
+### Message Types
+
+<Accordion title="Text Messages">
+  Standard text messages appear as:
+  - **Your messages**: Blue bubbles, right-aligned
+  - **Others' messages**: Gray bubbles, left-aligned with sender name
+</Accordion>
+
+<Accordion title="Stream Invitations">
+  Special invitation messages show:
+  - Blue background with border
+  - "INVITACION" heading
+  - "Ingres a la sala..." description
+  - "Unirse a la sala" button to join the stream
+</Accordion>
+
+## Sending Messages
+
+<Steps>
+  <Step title="Type Your Message">
+    Click in the message input at the bottom.
+    
+    <Note>
+      If the group is admin-only and you're not an admin, you'll see: "Solo administradores pueden enviar mensajes"
+    </Note>
+  </Step>
+  
+  <Step title="Enter Text">
+    Type your message in the input field.
+  </Step>
+  
+  <Step title="Send">
+    Press **Enter** or click the **paper airplane** icon.
+  </Step>
+  
+  <Step title="Message Appears">
+    Your message is sent immediately and appears in the chat.
+  </Step>
+</Steps>
+
+<Info>
+  Messages are delivered in real-time to all group members using WebSocket technology.
+</Info>
+
+## Group Information Panel
+
+<Steps>
+  <Step title="Open Info Panel">
+    Click the **info icon** (ℹ️) in the group header or click the group avatar.
+  </Step>
+  
+  <Step title="View Group Details">
+    The panel displays:
+    - Large group photo
+    - Group name and description
+    - Creation date
+    - Action buttons (Edit, Add Members, Leave)
+  </Step>
+  
+  <Step title="View Members List">
+    Scroll down to see:
+    - All group members
+    - Member photos and names
+    - Admin badges
+    - Member count
+  </Step>
+</Steps>
+
+### Member Information
+
+Each member shows:
+
+- **Profile photo**: Member's avatar
+- **Name**: Member's display name
+- **"Tú" label**: If it's you
+- **Role badge**:
+  - Blue "Admin" badge for administrators
+  - Gray "Miembro" for regular members
+
+## Admin Controls
+
+If you're a group administrator, you have additional options:
+
+### Adding Members
+
+<Steps>
+  <Step title="Click Add Members">
+    In the group info panel, click "Agregar Miembros" (Add Members).
+  </Step>
+  
+  <Step title="Search for Friends">
+    Use the search bar to find friends:
+    - Type name or email
+    - Results filter in real-time
+  </Step>
+  
+  <Step title="Add Friend">
+    Click "Agregar" (Add) next to a friend's name.
+    
+    <Note>
+      If they're already a member, you'll see "MIEMBRO" badge and "Agregado" (Added) button.
+    </Note>
+  </Step>
+  
+  <Step title="Member Added">
+    They're immediately added to the group and can see all messages.
+  </Step>
+</Steps>
+
+### Editing Group Details
+
+<Steps>
+  <Step title="Click Edit Button">
+    In the group info panel, click "Editar" (Edit).
+  </Step>
+  
+  <Step title="Modify Information">
+    Update any of:
+    - Group photo (click to upload new image)
+    - Group name
+    - Description
+    - Admin-only messaging toggle
+  </Step>
+  
+  <Step title="Save Changes">
+    Click "Guardar Cambios" (Save Changes).
+  </Step>
+</Steps>
+
+<Info>
+  Changes are applied immediately and visible to all group members.
+</Info>
+
+### Managing Members
+
+For each member (except yourself), admins can:
+
+<Accordion title="Make/Remove Admin">
+  Click the shield icon to:
+  - **Make admin**: Give member administrative privileges
+  - **Remove admin**: Revoke administrative privileges
+  
+  The badge updates immediately to reflect the change.
+</Accordion>
+
+<Accordion title="Expel Member">
+  Click the user-minus icon to:
+  1. Open confirmation dialog
+  2. Confirm expulsion
+  3. Remove member from group
+  
+  <Note>
+    Expelled members lose access to group messages immediately.
+  </Note>
+</Accordion>
+
+## Admin-Only Messaging
+
+Groups can restrict who can send messages:
+
+### Enabling Admin-Only Mode
+
+<Steps>
+  <Step title="Edit Group Settings">
+    As an admin, open the edit group modal.
+  </Step>
+  
+  <Step title="Toggle Setting">
+    Enable "Solo admins envían mensajes":
+    - Switch turns **blue** when ON
+    - Switch is **gray** when OFF
+  </Step>
+  
+  <Step title="Save Changes">
+    Click "Guardar Cambios" to apply.
+  </Step>
+</Steps>
+
+### Effect on Members
+
+When enabled:
+
+- **Admins**: Can send messages normally
+- **Regular members**: 
+  - See blue info box: "Solo los administradores pueden enviar mensajes"
+  - Message input is disabled
+  - Can still read all messages
+
+<Tip>
+  Use admin-only messaging for announcements, lectures, or when you want controlled one-way communication.
+</Tip>
+
+## Leaving a Group
+
+<Steps>
+  <Step title="Open Info Panel">
+    Click the info icon in the group header.
+  </Step>
+  
+  <Step title="Click Leave Button">
+    Click the red "Salir" (Leave) button.
+  </Step>
+  
+  <Step title="Confirm Action">
+    A modal asks "¿Estás seguro de que deseas salir de este grupo?"
+  </Step>
+  
+  <Step title="Leave Group">
+    Click "Sí" to confirm.
+    
+    You're immediately:
+    - Removed from the group
+    - Can no longer see messages
+    - Must be re-added to rejoin
+  </Step>
+</Steps>
+
+<Note>
+  If you're the last admin and leave, the first member is automatically promoted to admin.
+</Note>
+
+## Group Features
+
+### Real-time Updates
+
+Groups automatically update:
+
+- **New messages**: Appear instantly for all members
+- **Member changes**: Join/leave notifications
+- **Unread counts**: Update on new messages
+- **Last message preview**: Updates in sidebar
+
+### Message Timestamps
+
+Messages show when they were sent:
+
+- **Format**: HH:MM (24-hour)
+- **Date dividers**: Separate messages by day
+- **Smart dates**: "Hoy" (Today), "Ayer" (Yesterday), or full date
+
+### Group Restrictions
+
+Be aware of:
+
+<CardGroup cols={2}>
+  <Card title="Admin-Only Messaging" icon="shield">
+    Groups can restrict posting to admins only.
+  </Card>
+  
+  <Card title="Member Management" icon="user-gear">
+    Only admins can add/remove members and change settings.
+  </Card>
+</CardGroup>
+
+## Mobile Experience
+
+On mobile devices:
+
+### Responsive Layout
+
+- **Groups list**: Full-width on mobile
+- **Conversation**: Replaces groups list when opened
+- **Back button**: Returns to groups list
+- **Info panel**: Slides in from right as overlay
+
+### Mobile Actions
+
+<Steps>
+  <Step title="Select Group">
+    Tap a group to open it (groups list hides).
+  </Step>
+  
+  <Step title="View Messages">
+    Read and send messages in full-screen view.
+  </Step>
+  
+  <Step title="Return to List">
+    Tap the back arrow (chevron) to return to groups list.
+  </Step>
+</Steps>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Descriptive Names" icon="tag">
+    Use clear group names that indicate the purpose (e.g., "Math 101 Study Group").
+  </Card>
+  
+  <Card title="Add Group Photo" icon="image">
+    Upload a relevant photo to make groups easily identifiable.
+  </Card>
+  
+  <Card title="Set Expectations" icon="clipboard">
+    Use the description to clarify the group's purpose and rules.
+  </Card>
+  
+  <Card title="Moderate Appropriately" icon="gavel">
+    Use admin-only mode for formal announcements; allow open discussion for collaboration.
+  </Card>
+</CardGroup>
+
+## Group Management Tips
+
+<Accordion title="Promote Multiple Admins">
+  For important groups, promote several trusted members to admin to ensure continuity if one admin is unavailable.
+</Accordion>
+
+<Accordion title="Regular Cleanup">
+  Periodically review and remove inactive members to keep groups relevant.
+</Accordion>
+
+<Accordion title="Use Stream Invitations">
+  Share important live streams through groups to ensure all members are notified.
+</Accordion>
+
+<Accordion title="Archive Important Messages">
+  Take screenshots or notes of important group discussions for future reference.
+</Accordion>
+
+## Troubleshooting
+
+<Accordion title="Can't Send Messages">
+  1. Check if the group is admin-only and you're not an admin
+  2. Ensure you're connected to the internet
+  3. Verify you're still a member of the group
+  4. Try refreshing the page
+</Accordion>
+
+<Accordion title="Not Receiving Messages">
+  1. Check your internet connection
+  2. Refresh the page to reconnect WebSocket
+  3. Ensure you haven't been removed from the group
+  4. Clear browser cache and reload
+</Accordion>
+
+<Accordion title="Can't Add Members">
+  1. Verify you're an admin of the group
+  2. Ensure the person is on your friends list
+  3. Check if they're already a member
+  4. Try refreshing and attempting again
+</Accordion>
+
+## Next Steps
+
+- Learn how to [Host Streams](/guide/hosting-stream) and share them with groups
+- Explore [Making Calls](/guide/making-calls) for private conversations
+- Understand the [Dashboard](/guide/dashboard) to monitor group activity

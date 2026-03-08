@@ -1,0 +1,513 @@
+---
+title: API Service
+description: HTTP client for making authenticated API requests using Axios
+---
+
+## Overview
+
+The API service provides a configured Axios instance for making HTTP requests to the EduStream backend. It handles authentication, request/response interceptors, and common headers.
+
+## Configuration
+
+The API service is configured in `src/services/api.js`:
+
+```javascript src/services/api.js
+import axios from 'axios'
+
+const api = axios.create({
+  baseURL: 'http://localhost:3001/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+export default api
+```
+
+<ParamField path="baseURL" type="string" default="http://localhost:3001/api">
+  The base URL for all API requests. All relative URLs will be prefixed with this value.
+</ParamField>
+
+<ParamField path="headers" type="object">
+  Default headers sent with every request.
+</ParamField>
+
+## Authentication
+
+The API service automatically handles JWT token authentication through a request interceptor.
+
+### Request Interceptor
+
+The interceptor automatically adds the `Authorization` header to requests:
+
+```javascript src/services/api.js
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+
+    // Public routes that don't require token
+    const publicRoutes = [
+      { url: '/login', method: 'post' },
+    ]
+
+    // Normalize URL to ensure it starts with /
+    const url = config.url.startsWith('/') ? config.url : `/${config.url}`
+    const method = config.method.toLowerCase()
+
+    const isPublic = publicRoutes.some(
+      (route) => route.url === url && route.method === method,
+    )
+
+    if (token && !isPublic) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  },
+)
+```
+
+<Info>
+The token is automatically retrieved from `localStorage` and added to the `Authorization` header for all non-public routes.
+</Info>
+
+### Public Routes
+
+The following routes are excluded from automatic token authentication:
+
+<ResponseField name="/login" type="POST">
+  User login endpoint. No token required.
+</ResponseField>
+
+## Usage
+
+### Basic Requests
+
+Import and use the API service in your components:
+
+```javascript
+import api from '@/services/api.js'
+
+// GET request
+const response = await api.get('/users')
+console.log(response.data)
+
+// POST request
+const response = await api.post('/users', {
+  name: 'John Doe',
+  email: 'john@example.com'
+})
+
+// PUT request
+const response = await api.put('/users/123', {
+  name: 'Jane Doe'
+})
+
+// DELETE request
+const response = await api.delete('/users/123')
+```
+
+### Error Handling
+
+Always wrap API calls in try-catch blocks:
+
+```javascript
+try {
+  const response = await api.get('/users')
+  console.log(response.data)
+} catch (error) {
+  if (error.response) {
+    // Server responded with error status
+    console.error('Error:', error.response.data.message)
+    console.error('Status:', error.response.status)
+  } else if (error.request) {
+    // Request was made but no response received
+    console.error('No response from server')
+  } else {
+    // Error in request setup
+    console.error('Error:', error.message)
+  }
+}
+```
+
+## API Endpoints
+
+Here are the common API endpoints used in EduStream:
+
+### Authentication
+
+<ResponseField name="POST /login" type="endpoint">
+  Authenticate user and receive JWT token.
+  
+  **Request Body:**
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "password123"
+  }
+  ```
+  
+  **Response:**
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "user": {
+      "id": 123,
+      "name": "John Doe",
+      "email": "user@example.com",
+      "photo": "https://...",
+      "status": 1
+    }
+  }
+  ```
+</ResponseField>
+
+### Chat
+
+<ResponseField name="GET /chats" type="endpoint">
+  Get all chat conversations for the authenticated user.
+  
+  **Response:**
+  ```json
+  {
+    "data": [
+      {
+        "chat_id": 1,
+        "friend_id": 456,
+        "name": "Jane Doe",
+        "email": "jane@example.com",
+        "photo": "https://...",
+        "online": true,
+        "visibility": 1,
+        "messages": [
+          {
+            "message": "Hello!",
+            "sender_id": 456,
+            "created_at": "2024-01-15T10:30:00Z"
+          }
+        ]
+      }
+    ]
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="GET /rooms" type="endpoint">
+  Get all chat room IDs for the authenticated user.
+  
+  **Response:**
+  ```json
+  {
+    "rooms": [1, 2, 3, 5]
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="GET /listNewChat" type="endpoint">
+  Get list of users available to start a new chat with.
+  
+  **Response:**
+  ```json
+  {
+    "data": [
+      {
+        "id": 789,
+        "name": "Bob Smith",
+        "email": "bob@example.com",
+        "photo": "https://...",
+        "visibility": 1
+      }
+    ]
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="POST /chat/:userId" type="endpoint">
+  Create or get existing chat with a specific user.
+  
+  **Parameters:**
+  - `userId` (path): The ID of the user to chat with
+  
+  **Response:**
+  ```json
+  {
+    "chat_id": 123,
+    "created": true
+  }
+  ```
+</ResponseField>
+
+## Real-World Examples
+
+### Login Flow
+
+```javascript src/views/Login.vue
+import api from '@/services/api'
+import socket from '@/services/socket.js'
+import router from '@/router'
+
+export default {
+  data() {
+    return {
+      username: '',
+      password: '',
+      isLoading: false,
+      errorMessage: false,
+    }
+  },
+  methods: {
+    async login() {
+      this.isLoading = true
+      
+      try {
+        const response = await api.post('/login', {
+          email: this.username,
+          password: this.password,
+        })
+        
+        const token = response.data.token
+        
+        // Check if user is not locked
+        if (response.data.user.status === 0) {
+          this.errorMessage = true
+          return
+        }
+        
+        // Store token and user data
+        localStorage.setItem('token', token)
+        localStorage.setItem('user', JSON.stringify(response.data.user))
+        
+        // Connect to socket with auth
+        socket.auth = { token }
+        socket.connect()
+        socket.emit('online-offline')
+        
+        // Navigate to dashboard
+        router.push('/dashboard')
+      } catch (error) {
+        console.error(error)
+        this.errorMessage = true
+      } finally {
+        this.isLoading = false
+      }
+    },
+  },
+}
+```
+
+### Loading Chats
+
+```javascript src/views/Chats.vue
+import api from '@/services/api.js'
+
+export default {
+  data() {
+    return {
+      chats: [],
+      userData: JSON.parse(localStorage.getItem('user')) || {}
+    }
+  },
+  methods: {
+    async loadChats() {
+      try {
+        const response = await api.get('/chats')
+        const temp = response.data.data
+        
+        this.chats = temp.map((u) => {
+          const msgs = u.messages || []
+          return {
+            id: u.chat_id,
+            friendId: u.friend_id,
+            email: u.email,
+            online: u.online,
+            nombre: u.name,
+            mensaje: msgs.length > 0 ? msgs[msgs.length - 1].message : 'Sin mensajes',
+            nuevos: 0,
+            foto: (u.visibility !== 3) 
+              ? u.photo 
+              : "https://ui-avatars.com/api/?name=?&background=000&color=fff",
+            mensajes: msgs.map(m => ({ 
+              ...m, 
+              created_at: m.created_at || new Date().toISOString() 
+            })),
+          }
+        })
+      } catch (error) {
+        console.error('Error loading chats:', error)
+      }
+    },
+    
+    async loadFriends() {
+      try {
+        const response = await api.get('/listNewChat')
+        this.friends = response.data.data.map((u) => ({
+          id: u.id,
+          nombre: u.name,
+          email: u.email,
+          photo: (u.visibility !== 3) 
+            ? u.photo 
+            : "https://ui-avatars.com/api/?name=?&background=000&color=fff",
+        }))
+      } catch (error) {
+        console.error('Error loading friends:', error)
+      }
+    },
+    
+    async startChat(contacto) {
+      try {
+        const response = await api.post(`/chat/${contacto.id}`)
+        if (response.data) {
+          this.loadChats()
+        }
+      } catch (error) {
+        console.error('Error starting chat:', error)
+        this.addToast('Error al iniciar chat', 'error')
+      }
+    }
+  },
+  mounted() {
+    this.loadChats()
+    this.loadFriends()
+  }
+}
+```
+
+### Getting Room Connections
+
+```javascript src/views/Chats.vue
+async connectToUserChats() {
+  try {
+    const response = await api.get('/rooms')
+    const rooms = response.data.rooms
+    
+    if (rooms && rooms.length > 0) {
+      if (!socket.connected) {
+        socket.connect()
+      }
+
+      socket.emit('initial room connection', {
+        userId: this.userData.id,
+        rooms: rooms,
+      })
+    }
+  } catch (error) {
+    console.error('Error connecting to rooms:', error)
+  }
+}
+```
+
+## Response Structure
+
+Axios responses have the following structure:
+
+```javascript
+{
+  data: {},           // Response body
+  status: 200,        // HTTP status code
+  statusText: 'OK',   // HTTP status message
+  headers: {},        // Response headers
+  config: {},         // Request configuration
+  request: {}         // XMLHttpRequest instance
+}
+```
+
+Typically, you'll only need `response.data`:
+
+```javascript
+const response = await api.get('/users')
+const users = response.data  // Access the actual data
+```
+
+## Environment Configuration
+
+For production deployments, use environment variables:
+
+```javascript
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+```
+
+Create a `.env` file:
+
+```bash
+VITE_API_URL=https://api.edustream.com/api
+```
+
+## Adding Custom Interceptors
+
+### Response Interceptor
+
+Add a response interceptor for global error handling:
+
+```javascript
+api.interceptors.response.use(
+  (response) => {
+    return response
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      // Unauthorized - redirect to login
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      window.location.href = '/login'
+    }
+    
+    if (error.response?.status === 500) {
+      // Server error - show notification
+      console.error('Server error:', error.response.data)
+    }
+    
+    return Promise.reject(error)
+  }
+)
+```
+
+### Request Timeout
+
+Set a timeout for requests:
+
+```javascript
+const api = axios.create({
+  baseURL: 'http://localhost:3001/api',
+  timeout: 10000, // 10 seconds
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+```
+
+## Best Practices
+
+<Note>
+1. **Always handle errors** with try-catch blocks
+2. **Store tokens securely** in localStorage or httpOnly cookies
+3. **Clear tokens on logout** to prevent unauthorized access
+4. **Use environment variables** for API URLs
+5. **Implement retry logic** for failed requests
+6. **Add loading states** for better UX during API calls
+7. **Validate responses** before using the data
+</Note>
+
+## Troubleshooting
+
+<Warning>
+**Common Issues:**
+
+1. **401 Unauthorized**: Token expired or invalid - redirect to login
+2. **CORS Errors**: Ensure backend allows requests from your origin
+3. **Network Error**: Check if API server is running
+4. **Timeout**: Increase timeout or optimize backend response time
+</Warning>
+
+## Related Documentation
+
+- [Socket Service](/services/socket-service) - Real-time WebSocket communication
+- [Peer Service](/services/peer-service) - WebRTC peer connections
+- [Authentication](/guides/authentication) - User authentication flow
