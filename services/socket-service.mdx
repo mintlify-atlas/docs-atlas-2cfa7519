@@ -266,6 +266,200 @@ onBeforeUnmount(() => {
 })
 ```
 
+## Live Streaming Events
+
+EduStream uses Socket.io for managing live stream sessions, including host controls and viewer management.
+
+### Host Events
+
+<ResponseField name="start-stream" type="emit">
+  Start a live stream session.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('start-stream', {
+    roomId: 'stream-123',
+    link: 'unique-stream-link',
+    dataHost: {
+      id: userId,
+      name: userName,
+      photo: userPhoto
+    }
+  })
+  ```
+</ResponseField>
+
+<ResponseField name="end-stream" type="emit">
+  End an active live stream.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('end-stream', {
+    roomId: 'stream-123'
+  })
+  ```
+</ResponseField>
+
+<ResponseField name="response-request" type="emit">
+  Respond to a viewer's join request (admit or reject).
+  
+  **Payload:**
+  ```javascript
+  socket.emit('response-request', {
+    userId: viewerId,
+    roomId: 'stream-123',
+    response: 'accepted' // or 'rejected'
+  })
+  ```
+</ResponseField>
+
+<ResponseField name="expel-viewer" type="emit">
+  Remove a viewer from an active stream.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('expel-viewer', {
+    id: viewerId,
+    socketId: viewerSocketId,
+    roomId: 'stream-123'
+  })
+  ```
+</ResponseField>
+
+### Viewer Events
+
+<ResponseField name="request-join" type="emit">
+  Request to join a live stream.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('request-join', {
+    roomId: 'stream-123',
+    userId: myUserId,
+    name: myName,
+    photo: myPhoto
+  })
+  ```
+</ResponseField>
+
+<ResponseField name="leave-room" type="emit">
+  Leave a live stream room.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('leave-room', {
+    roomId: 'stream-123',
+    userId: myUserId
+  })
+  ```
+</ResponseField>
+
+### Stream Listeners
+
+```javascript src/views/LiveViewer.vue
+// Listen for join acceptance
+socket.on('join-accepted', (data) => {
+  // User was admitted to the stream
+  this.isAdmitted = true
+  this.connectToPeers(data.participants)
+})
+
+// Listen for stream start
+socket.on('stream-started', (data) => {
+  // Stream has started
+  this.hostData = data.host
+  this.streamActive = true
+})
+
+// Listen for stream end
+socket.on('stream-ended', () => {
+  // Stream has ended
+  this.cleanup()
+  router.push('/dashboard/statistics')
+})
+
+// Listen for expulsion
+socket.on('viewer-expelled', () => {
+  // You were removed from the stream
+  alert('You have been removed from the stream')
+  router.push('/dashboard/statistics')
+})
+
+// Listen for other viewers leaving
+socket.on('left-room', (data) => {
+  // Another viewer left
+  this.removeParticipant(data.userId)
+})
+
+// Listen for pending join requests (host only)
+socket.on('pending-request', (data) => {
+  // New viewer requesting to join
+  this.waitingRoom.push({
+    id: data.userId,
+    name: data.name,
+    photo: data.photo
+  })
+})
+
+// Listen for meeting start time
+socket.on('meeting-time', ({ startTime }) => {
+  // Stream start timestamp for duration calculation
+  this.streamStartTime = startTime
+})
+```
+
+## Group Chat Events
+
+EduStream supports group messaging with dedicated socket events.
+
+<ResponseField name="room-group" type="emit">
+  Join a group chat room.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('room-group', {
+    userId: myUserId,
+    groupId: groupId
+  })
+  ```
+</ResponseField>
+
+<ResponseField name="sendMessageGroup" type="emit">
+  Send a message to a group.
+  
+  **Payload:**
+  ```javascript
+  socket.emit('sendMessageGroup', {
+    groupId: 123,
+    senderId: 456,
+    message: 'Hello group!',
+    senderName: 'John Doe'
+  })
+  ```
+</ResponseField>
+
+### Group Chat Listeners
+
+```javascript src/views/Groups.vue
+socket.on('newMessageGroup', (dataMessage) => {
+  const group = this.groups.find(g => g.id === dataMessage.groupId)
+  if (group) {
+    group.messages.push({
+      id: dataMessage.id,
+      message: dataMessage.message,
+      sender_id: dataMessage.sender_id,
+      sender_name: dataMessage.senderName,
+      created_at: new Date().toISOString()
+    })
+    
+    // Update unread count if not currently viewing this group
+    if (this.selectedGroup?.id !== group.id) {
+      group.unreadCount = (group.unreadCount || 0) + 1
+    }
+  }
+})
+```
+
 ## Complete Example: Chat Integration
 
 ```javascript
@@ -360,4 +554,4 @@ const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001', {
 
 - [Peer Service](/services/peer-service) - WebRTC peer connections
 - [API Service](/services/api-service) - HTTP API requests
-- [Call Components](/components/calls) - Video call UI components
+- [Call System](/components/call-system) - Video call UI components
